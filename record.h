@@ -1,7 +1,7 @@
 #ifndef RECORD_HPP
 #define RECORD_HPP
 
-#include "basic.hpp"
+#include "basic.h"
 
 struct UserRec {
     char username[USER_LEN];

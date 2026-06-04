@@ -1,9 +1,9 @@
 #ifndef TRAIN_HPP
 #define TRAIN_HPP
 
-#include "record.hpp"
-#include "store.hpp"
-#include "BPT.hpp"
+#include "record.h"
+#include "store.h"
+#include "BPT.h"
 
 class TrainSys {
 private:

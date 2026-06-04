@@ -1,9 +1,10 @@
 #ifndef USER_HPP
 #define USER_HPP
 
-#include "record.hpp"
-#include "store.hpp"
-#include "BPT.hpp"
+#include "basic.h"
+#include "record.h"
+#include "store.h"
+#include "BPT.h"
 
 class UserSys {
 private:

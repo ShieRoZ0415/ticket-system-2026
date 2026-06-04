@@ -1,7 +1,7 @@
 #ifndef CMD_HPP
 #define CMD_HPP
 
-#include "ticket.hpp"
+#include "ticket.h"
 
 class Cmd {
 public:

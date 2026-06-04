@@ -1,9 +1,9 @@
 #ifndef TICKET_HPP
 #define TICKET_HPP
 
-#include "user.hpp"
-#include "train.hpp"
-#include "order.hpp"
+#include "user.h"
+#include "train.h"
+#include "order.h"
 
 struct Ticket {
     char trainID[TRAIN_LEN];
