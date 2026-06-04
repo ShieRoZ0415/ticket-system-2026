@@ -1,0 +1,11 @@
+cmake-build-debug/
+cmake-build-release/
+build/
+*.o
+*.exe
+*.out
+*.dat
+*.bpt
+*_Zone.Identifier
+.idea/
+.vscode/
