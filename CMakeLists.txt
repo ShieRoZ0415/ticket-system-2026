@@ -8,6 +8,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include_directories(.)
 
 add_executable(Ticket_System_2026_main
-        ticket.cpp
+        main.cpp
         BPT.h
+        basic.h
+        record.h
+        store.h
+        user.h
+        train.h
+        ticket.h
+        order.h
+        cmd.h
 )

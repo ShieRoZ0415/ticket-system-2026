@@ -1,93 +1,50 @@
-#include <iostream>
-#include <string>
+#ifndef BPT_H
+#define BPT_H
+
 #include <cstdio>
 
-using namespace std;
-
-const int MAXN = 100;
-const int INT_NEG = (-2147483647 - 1);
-
-struct Key {
-    char s[65];
-    int v;
-};
-
-int cmpstr(const char *a, const char *b) {
-    for (int i = 0; i < 65; i++) {
-        unsigned char x = (unsigned char)a[i];
-        unsigned char y = (unsigned char)b[i];
-
-        if (x < y) return -1;
-        if (x > y) return 1;
-        if (x == 0 && y == 0) return 0;
+template <class Key>
+struct BPTDefaultLess {
+    bool operator()(const Key &a, const Key &b) const {
+        return a < b;
     }
-
-    return 0;
-}
-
-int cmpkey(const Key &a, const Key &b) {
-    int c = cmpstr(a.s, b.s);
-
-    if (c != 0) return c;
-    if (a.v < b.v) return -1;
-    if (a.v > b.v) return 1;
-
-    return 0;
-}
-
-bool lesskey(const Key &a, const Key &b) {
-    return cmpkey(a, b) < 0;
-}
-
-bool equalkey(const Key &a, const Key &b) {
-    return cmpkey(a, b) == 0;
-}
-
-Key makekey(const string &s, int v) {
-    Key k;
-
-    for (int i = 0; i < 65; i++) k.s[i] = 0;
-
-    int n = (int)s.size();
-
-    if (n > 64) n = 64;
-
-    for (int i = 0; i < n; i++) k.s[i] = s[i];
-
-    k.v = v;
-
-    return k;
-}
-
-struct Header {
-    int root;
-    int tot;
 };
 
-struct Node {
-    int leaf;   // 1--leaf ; 0 -- internal
-    int cnt;    // key 数量
-    int parent;     // 根节点 parent = -1
-    int next;
-    int prev;
-    Key key[MAXN + 2];  // 防溢出
-    int son[MAXN + 3];
-};
-
-const int CSIZE = 2048;
-
-Node cache_node[CSIZE];
-int cache_id[CSIZE];
-bool cache_valid[CSIZE];
-bool cache_dirty[CSIZE];
-
+template <class Key, int MAXN = 100, class Less = BPTDefaultLess<Key> >
 class BPT {
 private:
+    struct Header {
+        int root;
+        int tot;
+    };
+
+    struct Node {
+        int leaf;
+        int cnt;
+        int parent;
+        int next;
+        int prev;
+        Key key[MAXN + 2];
+        int son[MAXN + 3];
+    };
+
+    static const int MIN_LEAF = (MAXN + 1) / 2;
+    static const int MIN_INTERNAL = MAXN / 2;
+
     FILE *fp;
     Header h;
+    Less less;
 
     long long off(int p) {
         return sizeof(Header) + 1ll * p * sizeof(Node);
+    }
+
+    bool lesskey(const Key &a, const Key &b) const {
+        return less(a, b);
+    }
+
+    bool equalkey(const Key &a, const Key &b) const {
+        return !less(a, b) && !less(b, a);
     }
 
     void initnode(Node &x, int leaf, int parent) {
@@ -97,78 +54,37 @@ private:
         x.next = -1;
         x.prev = -1;
 
-        for (int i = 0; i < MAXN + 2; i++) {
-            x.key[i] = makekey("", 0);
-        }
-
-        for (int i = 0; i < MAXN + 3; i++) {
+        for (int i = 0; i < MAXN + 3; ++i) {
             x.son[i] = -1;
         }
     }
 
     bool readhead() {
-        fseek(fp, 0, SEEK_SET);
-        return fread(&h, sizeof(h), 1, fp) == 1;
+        std::fseek(fp, 0, SEEK_SET);
+        return std::fread(&h, sizeof(h), 1, fp) == 1;
     }
 
     void writehead() {
-        fseek(fp, 0, SEEK_SET);
-        fwrite(&h, sizeof(h), 1, fp);
+        std::fseek(fp, 0, SEEK_SET);
+        std::fwrite(&h, sizeof(h), 1, fp);
     }
 
-    bool raw_read(int p, Node &x) {
-        fseek(fp, off(p), SEEK_SET);
-        return fread(&x, sizeof(x), 1, fp) == 1;
-    }
-
-    void raw_write(int p, const Node &x) {
-        fseek(fp, off(p), SEEK_SET);
-        fwrite(&x, sizeof(x), 1, fp);
-    }
-
-    void readnode(int p, Node &x) {
-        int c = p % CSIZE;
-
-        if (cache_valid[c] && cache_id[c] == p) {
-            x = cache_node[c];
-            return;
-        }
-
-        if (cache_valid[c] && cache_dirty[c]) {
-            raw_write(cache_id[c], cache_node[c]);
-        }
-
-        raw_read(p, cache_node[c]);
-
-        cache_id[c] = p;
-        cache_valid[c] = true;
-        cache_dirty[c] = false;
-
-        x = cache_node[c];
+    bool readnode(int p, Node &x) {
+        std::fseek(fp, off(p), SEEK_SET);
+        return std::fread(&x, sizeof(x), 1, fp) == 1;
     }
 
     void writenode(int p, const Node &x) {
-        int c = p % CSIZE;
-
-        if (cache_valid[c] && cache_id[c] != p && cache_dirty[c]) {
-            raw_write(cache_id[c], cache_node[c]);
-        }
-
-        cache_node[c] = x;
-        cache_id[c] = p;
-        cache_valid[c] = true;
-        cache_dirty[c] = true;
+        std::fseek(fp, off(p), SEEK_SET);
+        std::fwrite(&x, sizeof(x), 1, fp);
     }
 
     int newnode(int leaf, int parent) {
         Node x;
-
         initnode(x, leaf, parent);
 
         int p = h.tot++;
-
         writenode(p, x);
-
         return p;
     }
 
@@ -179,8 +95,11 @@ private:
         while (l < r) {
             int m = (l + r) >> 1;
 
-            if (lesskey(x.key[m], k)) l = m + 1;
-            else r = m;
+            if (lesskey(x.key[m], k)) {
+                l = m + 1;
+            } else {
+                r = m;
+            }
         }
 
         return l;
@@ -193,15 +112,18 @@ private:
         while (l < r) {
             int m = (l + r) >> 1;
 
-            if (lesskey(k, x.key[m])) r = m;
-            else l = m + 1;
+            if (lesskey(k, x.key[m])) {
+                r = m;
+            } else {
+                l = m + 1;
+            }
         }
 
         return l;
     }
 
     int child_index(const Node &x, int c) {
-        for (int i = 0; i <= x.cnt; i++) {
+        for (int i = 0; i <= x.cnt; ++i) {
             if (x.son[i] == c) return i;
         }
 
@@ -210,11 +132,8 @@ private:
 
     void set_parent(int p, int fa) {
         Node x;
-
         readnode(p, x);
-
         x.parent = fa;
-
         writenode(p, x);
     }
 
@@ -228,14 +147,12 @@ private:
             if (x.leaf) return p;
 
             int id = go_pos(x, k);
-
             p = x.son[id];
         }
     }
 
     Key first_key(int p) {
         Node x;
-
         readnode(p, x);
 
         while (!x.leaf) {
@@ -244,6 +161,19 @@ private:
         }
 
         return x.key[0];
+    }
+
+    void rebuild_internal_keys(int p) {
+        Node x;
+        readnode(p, x);
+
+        if (x.leaf) return;
+
+        for (int i = 0; i < x.cnt; ++i) {
+            x.key[i] = first_key(x.son[i + 1]);
+        }
+
+        writenode(p, x);
     }
 
     void change_parent_key(int p) {
@@ -260,6 +190,8 @@ private:
 
         int id = child_index(fa, p);
 
+        if (id == -1) return;
+
         if (id > 0) {
             fa.key[id - 1] = first_key(p);
             writenode(fp, fa);
@@ -270,132 +202,26 @@ private:
 
     void shrink_internal(int p) {
         Node x;
-
         readnode(p, x);
 
+        if (p != h.root) return;
+        if (x.leaf) return;
         if (x.cnt != 0) return;
 
         int c = x.son[0];
 
-        if (p == h.root) {
-            h.root = c;
-            set_parent(c, -1);
-            return;
-        }
-
-        int fp = x.parent;
-
-        Node fa;
-
-        readnode(fp, fa);
-
-        int id = child_index(fa, p);
-
-        if (id == -1) return;
-
-        fa.son[id] = c;
-
-        writenode(fp, fa);
-
-        set_parent(c, fp);
-
-        if (id > 0) {
-            fa.key[id - 1] = first_key(c);
-            writenode(fp, fa);
-        } else {
-            change_parent_key(fp);
-        }
-    }
-
-    void remove_empty_leaf(int p, Node &x) {
-        int lp = x.prev;
-        int rp = x.next;
-
-        if (lp != -1) {
-            Node l;
-
-            readnode(lp, l);
-
-            l.next = rp;
-
-            writenode(lp, l);
-        }
-
-        if (rp != -1) {
-            Node r;
-
-            readnode(rp, r);
-
-            r.prev = lp;
-
-            writenode(rp, r);
-        }
-
-        if (p == h.root) {
-            x.prev = -1;
-            x.next = -1;
-
-            writenode(p, x);
-
-            return;
-        }
-
-        int fp = x.parent;
-
-        Node fa;
-
-        readnode(fp, fa);
-
-        int id = child_index(fa, p);
-
-        if (id == -1) {
-            x.prev = -1;
-            x.next = -1;
-
-            writenode(p, x);
-
-            return;
-        }
-
-        int kp;
-
-        if (id == 0) kp = 0;
-        else kp = id - 1;
-
-        for (int i = kp; i + 1 < fa.cnt; i++) {
-            fa.key[i] = fa.key[i + 1];
-        }
-
-        for (int i = id; i < fa.cnt; i++) {
-            fa.son[i] = fa.son[i + 1];
-        }
-
-        fa.son[fa.cnt] = -1;
-        fa.cnt--;
-
-        x.prev = -1;
-        x.next = -1;
-
-        writenode(p, x);
-        writenode(fp, fa);
-
-        if (fa.cnt == 0) {
-            shrink_internal(fp);
-        } else if (id == 0) {
-            change_parent_key(fp);
-        }
+        h.root = c;
+        set_parent(c, -1);
     }
 
     void insert_in_parent(int left, const Key &k, int right) {
         Node l;
-
         readnode(left, l);
 
         if (l.parent == -1) {
             int rp = newnode(0, -1);
 
             Node r;
-
             readnode(rp, r);
 
             r.cnt = 1;
@@ -406,8 +232,8 @@ private:
             writenode(rp, r);
 
             l.parent = rp;
-
             writenode(left, l);
+
             set_parent(right, rp);
 
             h.root = rp;
@@ -418,16 +244,17 @@ private:
         int fp = l.parent;
 
         Node fa;
-
         readnode(fp, fa);
 
         int id = child_index(fa, left);
 
-        for (int i = fa.cnt; i > id; i--) {
+        if (id == -1) return;
+
+        for (int i = fa.cnt; i > id; --i) {
             fa.key[i] = fa.key[i - 1];
         }
 
-        for (int i = fa.cnt + 1; i > id + 1; i--) {
+        for (int i = fa.cnt + 1; i > id + 1; --i) {
             fa.son[i] = fa.son[i - 1];
         }
 
@@ -439,18 +266,18 @@ private:
 
         set_parent(right, fp);
 
-        if (fa.cnt > MAXN) split_internal(fp);
+        if (fa.cnt > MAXN) {
+            split_internal(fp);
+        }
     }
 
     void split_leaf(int p) {
         Node x;
-
         readnode(p, x);
 
         int q = newnode(1, x.parent);
 
         Node y;
-
         readnode(q, y);
 
         int mid = x.cnt / 2;
@@ -458,7 +285,7 @@ private:
 
         y.cnt = old - mid;
 
-        for (int i = 0; i < y.cnt; i++) {
+        for (int i = 0; i < y.cnt; ++i) {
             y.key[i] = x.key[mid + i];
         }
 
@@ -469,11 +296,8 @@ private:
 
         if (x.next != -1) {
             Node z;
-
             readnode(x.next, z);
-
             z.prev = q;
-
             writenode(x.next, z);
         }
 
@@ -487,13 +311,11 @@ private:
 
     void split_internal(int p) {
         Node x;
-
         readnode(p, x);
 
         int q = newnode(0, x.parent);
 
         Node y;
-
         readnode(q, y);
 
         int old = x.cnt;
@@ -503,16 +325,20 @@ private:
 
         y.cnt = old - mid - 1;
 
-        for (int i = 0; i < y.cnt; i++) {
+        for (int i = 0; i < y.cnt; ++i) {
             y.key[i] = x.key[mid + 1 + i];
         }
 
-        for (int i = 0; i <= y.cnt; i++) {
+        for (int i = 0; i <= y.cnt; ++i) {
             y.son[i] = x.son[mid + 1 + i];
             set_parent(y.son[i], q);
         }
 
         x.cnt = mid;
+
+        for (int i = x.cnt + 1; i < MAXN + 3; ++i) {
+            x.son[i] = -1;
+        }
 
         writenode(p, x);
         writenode(q, y);
@@ -520,17 +346,325 @@ private:
         insert_in_parent(p, up, q);
     }
 
+    void remove_child_from_parent(int fp, int child_pos) {
+        Node fa;
+        readnode(fp, fa);
+
+        for (int i = child_pos; i < fa.cnt; ++i) {
+            fa.son[i] = fa.son[i + 1];
+        }
+
+        fa.son[fa.cnt] = -1;
+        fa.cnt--;
+
+        writenode(fp, fa);
+
+        if (fp == h.root) {
+            if (fa.cnt == 0) {
+                shrink_internal(fp);
+            } else {
+                rebuild_internal_keys(fp);
+            }
+
+            return;
+        }
+
+        if (fa.cnt < MIN_INTERNAL) {
+            rebalance_internal(fp);
+        } else {
+            rebuild_internal_keys(fp);
+            change_parent_key(fp);
+        }
+    }
+
+    void rebalance_leaf(int p) {
+        Node x;
+        readnode(p, x);
+
+        if (p == h.root) return;
+        if (x.cnt >= MIN_LEAF) return;
+
+        int fp = x.parent;
+
+        Node fa;
+        readnode(fp, fa);
+
+        int id = child_index(fa, p);
+
+        if (id == -1) return;
+
+        int lp = -1;
+        int rp = -1;
+
+        if (id > 0) lp = fa.son[id - 1];
+        if (id < fa.cnt) rp = fa.son[id + 1];
+
+        if (lp != -1) {
+            Node l;
+            readnode(lp, l);
+
+            if (l.cnt > MIN_LEAF) {
+                for (int i = x.cnt; i > 0; --i) {
+                    x.key[i] = x.key[i - 1];
+                }
+
+                x.key[0] = l.key[l.cnt - 1];
+
+                x.cnt++;
+                l.cnt--;
+
+                writenode(lp, l);
+                writenode(p, x);
+
+                rebuild_internal_keys(fp);
+                change_parent_key(fp);
+
+                return;
+            }
+        }
+
+        if (rp != -1) {
+            Node r;
+            readnode(rp, r);
+
+            if (r.cnt > MIN_LEAF) {
+                x.key[x.cnt] = r.key[0];
+                x.cnt++;
+
+                for (int i = 0; i + 1 < r.cnt; ++i) {
+                    r.key[i] = r.key[i + 1];
+                }
+
+                r.cnt--;
+
+                writenode(p, x);
+                writenode(rp, r);
+
+                rebuild_internal_keys(fp);
+                change_parent_key(fp);
+
+                return;
+            }
+        }
+
+        if (lp != -1) {
+            Node l;
+            readnode(lp, l);
+
+            for (int i = 0; i < x.cnt; ++i) {
+                l.key[l.cnt + i] = x.key[i];
+            }
+
+            l.cnt += x.cnt;
+
+            l.next = x.next;
+
+            if (x.next != -1) {
+                Node nxt;
+                readnode(x.next, nxt);
+                nxt.prev = lp;
+                writenode(x.next, nxt);
+            }
+
+            x.cnt = 0;
+            x.prev = -1;
+            x.next = -1;
+
+            writenode(lp, l);
+            writenode(p, x);
+
+            remove_child_from_parent(fp, id);
+
+            return;
+        }
+
+        if (rp != -1) {
+            Node r;
+            readnode(rp, r);
+
+            for (int i = 0; i < r.cnt; ++i) {
+                x.key[x.cnt + i] = r.key[i];
+            }
+
+            x.cnt += r.cnt;
+
+            x.next = r.next;
+
+            if (r.next != -1) {
+                Node nxt;
+                readnode(r.next, nxt);
+                nxt.prev = p;
+                writenode(r.next, nxt);
+            }
+
+            r.cnt = 0;
+            r.prev = -1;
+            r.next = -1;
+
+            writenode(p, x);
+            writenode(rp, r);
+
+            remove_child_from_parent(fp, id + 1);
+
+            return;
+        }
+    }
+
+    void rebalance_internal(int p) {
+        Node x;
+        readnode(p, x);
+
+        if (p == h.root) {
+            shrink_internal(p);
+            return;
+        }
+
+        if (x.cnt >= MIN_INTERNAL) return;
+
+        int fp = x.parent;
+
+        Node fa;
+        readnode(fp, fa);
+
+        int id = child_index(fa, p);
+
+        if (id == -1) return;
+
+        int lp = -1;
+        int rp = -1;
+
+        if (id > 0) lp = fa.son[id - 1];
+        if (id < fa.cnt) rp = fa.son[id + 1];
+
+        if (lp != -1) {
+            Node l;
+            readnode(lp, l);
+
+            if (l.cnt > MIN_INTERNAL) {
+                for (int i = x.cnt + 1; i > 0; --i) {
+                    x.son[i] = x.son[i - 1];
+                }
+
+                x.son[0] = l.son[l.cnt];
+
+                set_parent(x.son[0], p);
+
+                l.son[l.cnt] = -1;
+                l.cnt--;
+                x.cnt++;
+
+                writenode(lp, l);
+                writenode(p, x);
+
+                rebuild_internal_keys(lp);
+                rebuild_internal_keys(p);
+                rebuild_internal_keys(fp);
+                change_parent_key(fp);
+
+                return;
+            }
+        }
+
+        if (rp != -1) {
+            Node r;
+            readnode(rp, r);
+
+            if (r.cnt > MIN_INTERNAL) {
+                x.son[x.cnt + 1] = r.son[0];
+
+                set_parent(x.son[x.cnt + 1], p);
+
+                x.cnt++;
+
+                for (int i = 0; i < r.cnt; ++i) {
+                    r.son[i] = r.son[i + 1];
+                }
+
+                r.son[r.cnt] = -1;
+                r.cnt--;
+
+                writenode(p, x);
+                writenode(rp, r);
+
+                rebuild_internal_keys(p);
+                rebuild_internal_keys(rp);
+                rebuild_internal_keys(fp);
+                change_parent_key(fp);
+
+                return;
+            }
+        }
+
+        if (lp != -1) {
+            Node l;
+            readnode(lp, l);
+
+            int base = l.cnt + 1;
+
+            for (int i = 0; i <= x.cnt; ++i) {
+                l.son[base + i] = x.son[i];
+                set_parent(x.son[i], lp);
+            }
+
+            l.cnt += x.cnt + 1;
+
+            for (int i = 0; i <= x.cnt; ++i) {
+                x.son[i] = -1;
+            }
+
+            x.cnt = 0;
+
+            writenode(lp, l);
+            writenode(p, x);
+
+            rebuild_internal_keys(lp);
+
+            remove_child_from_parent(fp, id);
+
+            return;
+        }
+
+        if (rp != -1) {
+            Node r;
+            readnode(rp, r);
+
+            int base = x.cnt + 1;
+
+            for (int i = 0; i <= r.cnt; ++i) {
+                x.son[base + i] = r.son[i];
+                set_parent(r.son[i], p);
+            }
+
+            x.cnt += r.cnt + 1;
+
+            for (int i = 0; i <= r.cnt; ++i) {
+                r.son[i] = -1;
+            }
+
+            r.cnt = 0;
+
+            writenode(p, x);
+            writenode(rp, r);
+
+            rebuild_internal_keys(p);
+
+            remove_child_from_parent(fp, id + 1);
+
+            return;
+        }
+    }
+
 public:
-    BPT(const char *name) {
-        fp = fopen(name, "rb+");
+    explicit BPT(const char *name) {
+        fp = std::fopen(name, "rb+");
 
-        if (!fp) fp = fopen(name, "wb+");
+        if (!fp) {
+            fp = std::fopen(name, "wb+");
+        }
 
-        setvbuf(fp, 0, _IOFBF, 1 << 20);
+        std::fseek(fp, 0, SEEK_END);
 
-        fseek(fp, 0, SEEK_END);
-
-        long long sz = ftell(fp);
+        long long sz = std::ftell(fp);
 
         if (sz < (long long)sizeof(Header)) {
             h.root = 0;
@@ -539,7 +673,6 @@ public:
             writehead();
 
             Node r;
-
             initnode(r, 1, -1);
 
             writenode(0, r);
@@ -553,7 +686,6 @@ public:
                 writehead();
 
                 Node r;
-
                 initnode(r, 1, -1);
 
                 writenode(0, r);
@@ -562,35 +694,43 @@ public:
     }
 
     ~BPT() {
-        flush_cache();
         writehead();
-        fflush(fp);
-        fclose(fp);
+        std::fflush(fp);
+        std::fclose(fp);
     }
 
-    void flush_cache() {
-        for (int i = 0; i < CSIZE; i++) {
-            if (cache_valid[i] && cache_dirty[i]) {
-                raw_write(cache_id[i], cache_node[i]);
-                cache_dirty[i] = false;
-            }
-        }
+    void flush() {
+        writehead();
+        std::fflush(fp);
     }
 
-    void insert(const string &s, int v) {
-        Key k = makekey(s, v);
+    void clear() {
+        h.root = 0;
+        h.tot = 1;
 
+        writehead();
+
+        Node r;
+        initnode(r, 1, -1);
+
+        writenode(0, r);
+
+        std::fflush(fp);
+    }
+
+    bool insert(const Key &k) {
         int p = find_leaf(k);
 
         Node x;
-
         readnode(p, x);
 
         int id = lower_pos(x, k);
 
-        if (id < x.cnt && equalkey(x.key[id], k)) return;
+        if (id < x.cnt && equalkey(x.key[id], k)) {
+            return false;
+        }
 
-        for (int i = x.cnt; i > id; i--) {
+        for (int i = x.cnt; i > id; --i) {
             x.key[i] = x.key[i - 1];
         }
 
@@ -606,111 +746,125 @@ public:
         if (x.cnt > MAXN) {
             split_leaf(p);
         }
+
+        return true;
     }
 
-    void erase(const string &s, int v) {
-        Key k = makekey(s, v);
-
+    bool erase(const Key &k) {
         int p = find_leaf(k);
 
         Node x;
-
         readnode(p, x);
 
         int id = lower_pos(x, k);
 
-        if (id >= x.cnt || !equalkey(x.key[id], k)) return;
+        if (id >= x.cnt || !equalkey(x.key[id], k)) {
+            return false;
+        }
 
-        for (int i = id; i + 1 < x.cnt; i++) {
+        for (int i = id; i + 1 < x.cnt; ++i) {
             x.key[i] = x.key[i + 1];
         }
 
         x.cnt--;
 
-        if (x.cnt == 0) {
-            remove_empty_leaf(p, x);
-            return;
+        if (p == h.root) {
+            x.prev = -1;
+            x.next = -1;
+            writenode(p, x);
+            return true;
         }
 
         writenode(p, x);
 
-        if (id == 0 && p != h.root) {
+        if (x.cnt < MIN_LEAF) {
+            rebalance_leaf(p);
+        } else if (id == 0) {
             change_parent_key(p);
         }
+
+        return true;
     }
 
-    void find(const string &s) {
-        Key k = makekey(s, INT_NEG);
-
+    bool find(const Key &k) {
         int p = find_leaf(k);
 
         Node x;
-
         readnode(p, x);
 
         int id = lower_pos(x, k);
-        bool ok = false;
 
-        while (p != -1) {
-            while (id < x.cnt) {
-                int c = cmpstr(x.key[id].s, k.s);
+        return id < x.cnt && equalkey(x.key[id], k);
+    }
 
-                if (c > 0) {
-                    if (!ok) cout << "null";
-                    cout << '\n';
-                    return;
-                }
+    bool lower_bound(const Key &k, Key &res) {
+        int p = find_leaf(k);
 
-                if (c == 0) {
-                    if (ok) cout << ' ';
-                    cout << x.key[id].v;
-                    ok = true;
-                }
+        Node x;
+        readnode(p, x);
 
-                id++;
+        int id = lower_pos(x, k);
+
+        while (true) {
+            if (id < x.cnt) {
+                res = x.key[id];
+                return true;
             }
 
             p = x.next;
 
-            if (p != -1) {
-                readnode(p, x);
-                id = 0;
-            }
+            if (p == -1) return false;
+
+            readnode(p, x);
+            id = 0;
         }
+    }
 
-        if (!ok) cout << "null";
+    bool cursor_lower_bound(const Key &k, int &p, int &id, Key &res) {
+        p = find_leaf(k);
 
-        cout << '\n';
+        Node x;
+        readnode(p, x);
+
+        id = lower_pos(x, k);
+
+        while (true) {
+            if (id < x.cnt) {
+                res = x.key[id];
+                return true;
+            }
+
+            p = x.next;
+
+            if (p == -1) return false;
+
+            readnode(p, x);
+            id = 0;
+        }
+    }
+
+    bool cursor_next(int &p, int &id, Key &res) {
+        if (p == -1) return false;
+
+        Node x;
+        readnode(p, x);
+
+        id++;
+
+        while (true) {
+            if (id < x.cnt) {
+                res = x.key[id];
+                return true;
+            }
+
+            p = x.next;
+
+            if (p == -1) return false;
+
+            readnode(p, x);
+            id = 0;
+        }
     }
 };
 
-int main() {
-    ios::sync_with_stdio(false);
-    cin.tie(0);
-
-    BPT t("bpt.dat");
-
-    int n;
-
-    cin >> n;
-
-    string op;
-    string idx;
-    int val;
-
-    for (int i = 0; i < n; i++) {
-        cin >> op >> idx;
-
-        if (op[0] == 'i') {
-            cin >> val;
-            t.insert(idx, val);
-        } else if (op[0] == 'd') {
-            cin >> val;
-            t.erase(idx, val);
-        } else {
-            t.find(idx);
-        }
-    }
-
-    return 0;
-}
+#endif
