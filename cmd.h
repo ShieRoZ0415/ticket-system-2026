@@ -31,7 +31,98 @@ public:
     bool hasG;
     bool hasQ;
 
-    int parse();
+    void init() {
+        timestamp = 0;
+        name.clear();
+
+        c.clear();
+        u.clear();
+        p.clear();
+        n.clear();
+        m.clear();
+        g.clear();
+
+        i.clear();
+        s.clear();
+        t.clear();
+        d.clear();
+        f.clear();
+        q.clear();
+        y.clear();
+        x.clear();
+        o.clear();
+
+        hasP = false;
+        hasN = false;
+        hasM = false;
+        hasG = false;
+        hasQ = false;
+    }
+
+    int parse_line(const std::string &line) {
+        init();
+
+        std::string token[80];
+        int cnt = 0;
+
+        int pos = 0;
+        int len = (int)line.size();
+
+        while (pos < len) {
+            while (pos < len && line[pos] == ' ') ++pos;
+            if (pos >= len) break;
+
+            std::string cur;
+            while (pos < len && line[pos] != ' ') {
+                cur += line[pos];
+                ++pos;
+            }
+
+            token[cnt++] = cur;
+        }
+
+        if (cnt < 2) return 0;
+
+        timestamp = 0;
+        for (int j = 1; j + 1 < (int)token[0].size(); ++j) {
+            timestamp = timestamp * 10 + token[0][j] - '0';
+        }
+
+        name = token[1];
+
+        for (int j = 2; j + 1 < cnt; j += 2) {
+            char key = token[j][1];
+            std::string val = token[j + 1];
+
+            if (key == 'c') c = val;
+            else if (key == 'u') u = val;
+            else if (key == 'p') {
+                p = val;
+                hasP = true;
+            } else if (key == 'n') {
+                n = val;
+                hasN = true;
+            } else if (key == 'm') {
+                m = val;
+                hasM = true;
+            } else if (key == 'g') {
+                g = val;
+                hasG = true;
+            } else if (key == 'i') i = val;
+            else if (key == 's') s = val;
+            else if (key == 't') t = val;
+            else if (key == 'd') d = val;
+            else if (key == 'f') f = val;
+            else if (key == 'q') {
+                q = val;
+                hasQ = true;
+            } else if (key == 'y') y = val;
+            else if (key == 'x') x = val;
+            else if (key == 'o') o = val;
+        }
+
+        return 1;
+    }
 };
 
 class Sys {
@@ -42,11 +133,91 @@ private:
     TicketSys ticket;
 
 public:
-    Sys();
+    Sys():ticket(&user, &train, &order) {
+    }
 
-    void run();
-    void work(Cmd &cmd);
-    void clean();
+    void run() {
+        std::string line;
+
+        while (std::getline(std::cin, line)) {
+            if (line.empty()) continue;
+
+            Cmd cmd;
+            if (!cmd.parse_line(line)) continue;
+
+            if (cmd.name == "exit") {
+                std::cout << '[' << cmd.timestamp << "] bye\n";
+                break;
+            }
+
+            work(cmd);
+        }
+    }
+
+    void work(Cmd &cmd) {
+        std::cout << '[' << cmd.timestamp << "] ";
+
+        if (cmd.name == "add_user") {
+            int pri = 0;
+            if (!cmd.g.empty()) pri = to_int(cmd.g);
+
+            int res = user.add_user(cmd.c, cmd.u, cmd.p, cmd.n, cmd.m, pri);
+            std::cout << res << '\n';
+        } else if (cmd.name == "login") {
+            std::cout << user.login(cmd.u, cmd.p) << '\n';
+        } else if (cmd.name == "logout") {
+            std::cout << user.logout(cmd.u) << '\n';
+        } else if (cmd.name == "query_profile") {
+            UserRec ans;
+            int res = user.query_profile(cmd.c, cmd.u, ans);
+
+            if (res == -1) {
+                std::cout << -1 << '\n';
+            } else {
+                std::cout << ans.username << ' '
+                          << ans.name << ' '
+                          << ans.mail << ' '
+                          << ans.privilege << '\n';
+            }
+        } else if (cmd.name == "modify_profile") {
+            int pri = 0;
+            if (!cmd.g.empty()) pri = to_int(cmd.g);
+
+            UserRec ans;
+            int res = user.modify_profile(cmd.c,
+                                          cmd.u,
+                                          cmd.p,
+                                          cmd.n,
+                                          cmd.m,
+                                          pri,
+                                          cmd.hasP,
+                                          cmd.hasN,
+                                          cmd.hasM,
+                                          cmd.hasG,
+                                          ans);
+
+            if (res == -1) {
+                std::cout << -1 << '\n';
+            } else {
+                std::cout << ans.username << ' '
+                          << ans.name << ' '
+                          << ans.mail << ' '
+                          << ans.privilege << '\n';
+            }
+        } else if (cmd.name == "clean") {
+            clean();
+            std::cout << 0 << '\n';
+        } else {
+            std::cout << -1 << '\n';
+        }
+    }
+
+    void clean() {
+        user.clear();
+        train.clear();
+        order.clear();
+        ticket.clear();
+    }
 };
 
 #endif

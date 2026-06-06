@@ -20,6 +20,16 @@ const int MAX_STA = 100;
 const int MAX_DAY = 92;
 const int MAX_ONLINE = 20000;
 
+inline int to_int(const std::string &s) {
+    int x = 0;
+    for (int i = 0; i < (int)s.size(); ++i) {
+        if (s[i] >= '0' && s[i] <= '9') {
+            x = x * 10 + s[i] - '0';
+        }
+    }
+    return x;
+}
+
 inline int date_to_int(const char *s){
     int month = (s[0] - '0') * 10 + (s[1] - '0');
     int day = (s[3] - '0') * 10 + (s[4] - '0');

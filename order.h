@@ -1,5 +1,5 @@
-#ifndef ORDER_HPP
-#define ORDER_HPP
+#ifndef ORDER_H
+#define ORDER_H
 
 #include "record.h"
 #include "store.h"
@@ -12,20 +12,55 @@ private:
     BPT<QueueKey> queueIdx;
 
 public:
-    OrderSys();
+    OrderSys()
+        : orderFile("order.dat"),
+          orderIdx("order.bpt"),
+          queueIdx("queue.bpt") {
+    }
 
-    int add_order(const OrderRec &o);
-    void update_order(int pos, const OrderRec &o);
-    void read_order(int pos, OrderRec &o);
+    int add_order(const OrderRec &o) {
+        int pos = orderFile.append(o);
 
-    int query_order(const std::string &username);
+        OrderKey k;
+        std::memset(&k, 0, sizeof(k));
+        std::strcpy(k.username, o.username);
+        k.revTime = 2000000000 - o.time;
+        k.pos = pos;
 
-    void add_queue(const QueueKey &k);
-    void del_queue(const QueueKey &k);
+        orderIdx.insert(k);
 
-    BPT<QueueKey> &queue_index();
+        return pos;
+    }
 
-    void clear();
+    void update_order(int pos, const OrderRec &o) {
+        orderFile.write(pos, o);
+    }
+
+    void read_order(int pos, OrderRec &o) {
+        orderFile.read(pos, o);
+    }
+
+    int query_order(const std::string &username) {
+        return -1;
+    }
+
+    void add_queue(const QueueKey &k) {
+        queueIdx.insert(k);
+    }
+
+    void del_queue(const QueueKey &k) {
+        queueIdx.erase(k);
+    }
+
+    BPT<QueueKey> &queue_index() {
+        return queueIdx;
+    }
+
+    void clear() {
+        orderFile.clear();
+        orderIdx.clear();
+        queueIdx.clear();
+    }
 };
 
 #endif
