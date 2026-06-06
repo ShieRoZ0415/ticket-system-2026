@@ -2,6 +2,7 @@
 #define RECORD_HPP
 
 #include "basic.h"
+#include <cstring>
 
 struct UserRec {
     char username[USER_LEN];
@@ -73,7 +74,7 @@ struct UserKey {
     int pos;
 
     bool operator<(const UserKey &o) const {
-        int c = str_cmp(username, o.username);
+        int c = strcmp(username, o.username);
         if (c != 0) return c < 0;
         return pos < o.pos;
     }
@@ -84,7 +85,7 @@ struct TrainKey {
     int pos;
 
     bool operator<(const TrainKey &o) const {
-        int c = str_cmp(trainID, o.trainID);
+        int c = strcmp(trainID, o.trainID);
         if (c != 0) return c < 0;
         return pos < o.pos;
     }
@@ -96,10 +97,10 @@ struct StaKey {
     int pos;
 
     bool operator<(const StaKey &o) const {
-        int c = str_cmp(station, o.station);
+        int c = strcmp(station, o.station);
         if (c != 0) return c < 0;
 
-        c = str_cmp(trainID, o.trainID);
+        c = strcmp(trainID, o.trainID);
         if (c != 0) return c < 0;
 
         return pos < o.pos;
@@ -112,7 +113,7 @@ struct OrderKey {
     int pos;
 
     bool operator<(const OrderKey &o) const {
-        int c = str_cmp(username, o.username);
+        int c = strcmp(username, o.username);
         if (c != 0) return c < 0;
 
         if (revTime != o.revTime) return revTime < o.revTime;
@@ -127,7 +128,7 @@ struct QueueKey {
     int pos;
 
     bool operator<(const QueueKey &o) const {
-        int c = str_cmp(trainID, o.trainID);
+        int c = strcmp(trainID, o.trainID);
         if (c != 0) return c < 0;
 
         if (trainDate != o.trainDate) return trainDate < o.trainDate;

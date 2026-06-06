@@ -6,6 +6,7 @@ build/
 *.out
 *.dat
 *.bpt
+*.Identifier
 *_Zone.Identifier
 .idea/
 .vscode/
