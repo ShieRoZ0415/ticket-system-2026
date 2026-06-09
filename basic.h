@@ -30,11 +30,23 @@ inline int to_int(const std::string &s) {
     return x;
 }
 
-inline int date_to_int(const char *s){
+inline int date_to_int(const char *s) {
     int month = (s[0] - '0') * 10 + (s[1] - '0');
     int day = (s[3] - '0') * 10 + (s[4] - '0');
 
-    int days[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    int days[13] = {
+        0,
+        31, 28, 31, 30, 31, 30,
+        31, 31, 30, 31, 30, 31
+    };
+
+    if (month < 6) {
+        return -100000;
+    }
+
+    if (month > 12) {
+        return 100000;
+    }
 
     int res = 0;
 

@@ -116,24 +116,28 @@ private:
 
         return true;
     }
-    bool better_ticket(const Ticket &a, const Ticket &b, const std::string &sortType) {
-        if (sortType == "cost") {
+
+    bool better_ticket(const Ticket &a,
+                       const Ticket &b,
+                       const std::string &sortType) {
+        if (sortType == "time") {
+            int ta = a.arriveTime - a.leaveTime;
+            int tb = b.arriveTime - b.leaveTime;
+
+            if (ta != tb) {
+                return ta < tb;
+            }
+
+            return std::strcmp(a.trainID, b.trainID) < 0;
+        } else {
             if (a.price != b.price) {
                 return a.price < b.price;
             }
 
-            return std::strcmp(a.trainID, b.trainID) > 0;
+            return std::strcmp(a.trainID, b.trainID) < 0;
         }
-
-        int ta = a.arriveTime - a.leaveTime;
-        int tb = b.arriveTime - b.leaveTime;
-
-        if (ta != tb) {
-            return ta < tb;
-        }
-
-        return std::strcmp(a.trainID, b.trainID) < 0;   // 升序
     }
+
     void print_ticket(const Ticket &x) {
         std::cout << x.trainID << ' '
                   << x.from << ' ';
@@ -382,10 +386,36 @@ public:
                                     int toID2 = train->station_id(t2, to.c_str());
 
                                     if (midID2 != -1 && toID2 != -1 && midID2 < toID2) {
-                                        for (int dd = first.arriveTime / 1440; dd <= first.arriveTime / 1440 + 1; ++dd) {
+                                        int leaveOffset = t2.startTime + t2.depOffset[midID2];
+
+                                        int need = first.arriveTime - leaveOffset;
+                                        int originDay;
+
+                                        if (need <= 0) {
+                                            originDay = 0;
+                                        } else {
+                                            originDay = (need + 1439) / 1440;
+                                        }
+
+                                        if (originDay < t2.saleL) {
+                                            originDay = t2.saleL;
+                                        }
+
+                                        if (originDay <= t2.saleR) {
+                                            int secondQueryDay = originDay + leaveOffset / 1440;
+
                                             Ticket second;
 
-                                            if (make_ticket(t2, midID2, toID2, dd, second)) {
+                                            if (make_ticket(t2, midID2, toID2, secondQueryDay, second)) {
+                                                if (second.leaveTime < first.arriveTime) {
+                                                    ++originDay;
+
+                                                    if (originDay <= t2.saleR) {
+                                                        secondQueryDay = originDay + leaveOffset / 1440;
+                                                        make_ticket(t2, midID2, toID2, secondQueryDay, second);
+                                                    }
+                                                }
+
                                                 if (second.leaveTime >= first.arriveTime) {
                                                     if (!found ||
                                                         better_transfer(first, second, best1, best2, sortType)) {
@@ -393,7 +423,6 @@ public:
                                                         best2 = second;
                                                         found = true;
                                                         }
-                                                    break;
                                                 }
                                             }
                                         }
