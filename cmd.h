@@ -3,6 +3,27 @@
 
 #include "ticket.h"
 
+inline int split_str(const std::string &s, std::string a[]) {
+    if (s == "_") {
+        return 0;
+    }
+
+    int cnt = 0;
+    std::string cur;
+
+    for (int i = 0; i < (int)s.size(); ++i) {
+        if (s[i] == '|') {
+            a[cnt++] = cur;
+            cur.clear();
+        } else {
+            cur += s[i];
+        }
+    }
+
+    a[cnt++] = cur;
+    return cnt;
+}
+
 class Cmd {
 public:
     int timestamp;
@@ -125,6 +146,48 @@ public:
     }
 };
 
+inline void build_train_from_cmd(const Cmd &cmd, TrainRec &t) {
+    std::memset(&t, 0, sizeof(t));
+
+    std::strcpy(t.trainID, cmd.i.c_str());
+
+    t.stationNum = to_int(cmd.n);
+    t.seatNum = to_int(cmd.m);
+
+    std::string tmp[MAX_STA];
+
+    int cnt = split_str(cmd.s, tmp);
+    for (int i = 0; i < cnt; ++i) {
+        std::strcpy(t.stations[i], tmp[i].c_str());
+    }
+
+    cnt = split_str(cmd.p, tmp);
+    for (int i = 0; i < cnt; ++i) {
+        t.price[i] = to_int(tmp[i]);
+    }
+
+    cnt = split_str(cmd.t, tmp);
+    for (int i = 0; i < cnt; ++i) {
+        t.travel[i] = to_int(tmp[i]);
+    }
+
+    cnt = split_str(cmd.o, tmp);
+    for (int i = 0; i < cnt; ++i) {
+        t.stopover[i] = to_int(tmp[i]);
+    }
+
+    cnt = split_str(cmd.d, tmp);
+    t.saleL = date_to_int(tmp[0].c_str());
+    t.saleR = date_to_int(tmp[1].c_str());
+
+    t.startTime = time_to_int(cmd.x.c_str());
+    t.type = cmd.y[0];
+
+    t.released = 0;
+    t.seatPos = -1;
+}
+
+
 class Sys {
 private:
     UserSys user;
@@ -204,7 +267,22 @@ public:
                           << ans.mail << ' '
                           << ans.privilege << '\n';
             }
-        } else if (cmd.name == "clean") {
+        }else if (cmd.name == "add_train") {
+            TrainRec t;
+            build_train_from_cmd(cmd, t);
+
+            std::cout << train.add_train(t) << '\n';
+        } else if (cmd.name == "delete_train") {
+            std::cout << train.delete_train(cmd.i) << '\n';
+        } else if (cmd.name == "release_train") {
+            std::cout << train.release_train(cmd.i) << '\n';
+        } else if (cmd.name == "query_train") {
+            int res = train.query_train(cmd.i, cmd.d);
+
+            if (res == -1) {
+                std::cout << -1 << '\n';
+            }
+        }else if (cmd.name == "clean") {
             clean();
             std::cout << 0 << '\n';
         } else if (cmd.name == "query_ticket") {
@@ -221,7 +299,7 @@ public:
             }
             int res = ticket.buy_ticket(cmd.u, cmd.i, cmd.d, num, cmd.f, cmd.t, queue, cmd.timestamp);
             if (res == -2) {
-                std::cout << 'queue\n';
+                std::cout << "queue\n";
             } else {
                 std::cout << res << '\n';
             }
