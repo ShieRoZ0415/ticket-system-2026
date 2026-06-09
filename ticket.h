@@ -382,15 +382,18 @@ public:
                                     int toID2 = train->station_id(t2, to.c_str());
 
                                     if (midID2 != -1 && toID2 != -1 && midID2 < toID2) {
-                                        Ticket second;
+                                        for (int dd = first.arriveTime / 1440; dd <= first.arriveTime / 1440 + 1; ++dd) {
+                                            Ticket second;
 
-                                        if (make_ticket(t2, midID2, toID2, queryDay, second)) {
-                                            if (second.leaveTime >= first.arriveTime) {
-                                                if (!found ||
-                                                    better_transfer(first, second, best1, best2, sortType)) {
-                                                    best1 = first;
-                                                    best2 = second;
-                                                    found = true;
+                                            if (make_ticket(t2, midID2, toID2, dd, second)) {
+                                                if (second.leaveTime >= first.arriveTime) {
+                                                    if (!found ||
+                                                        better_transfer(first, second, best1, best2, sortType)) {
+                                                        best1 = first;
+                                                        best2 = second;
+                                                        found = true;
+                                                        }
+                                                    break;
                                                 }
                                             }
                                         }

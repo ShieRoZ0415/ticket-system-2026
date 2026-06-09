@@ -34,17 +34,17 @@ inline int date_to_int(const char *s){
     int month = (s[0] - '0') * 10 + (s[1] - '0');
     int day = (s[3] - '0') * 10 + (s[4] - '0');
 
-    int before = 0;
+    int days[13] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
-    if (month == 6) {
-        before = 0;
-    } else if (month == 7) {
-        before = 30;
-    } else {
-        before = 61;
+    int res = 0;
+
+    for (int i = 6; i < month; ++i) {
+        res += days[i];
     }
 
-    return before + day - 1;
+    res += day - 1;
+
+    return res;
 }
 
 inline void int_to_date(int d, char *s) {   // 列车运行可能跨天到 9 月

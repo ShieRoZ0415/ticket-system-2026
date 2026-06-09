@@ -174,20 +174,46 @@ public:
         TrainRec t;
         int pos;
 
-        if (!get_train(trainID.c_str(), t, pos)) {
+        if (!get_train_by_id(trainID.c_str(), t, pos)) {
             return -1;
         }
 
-        int day = date_to_int(date.c_str());
+        int month = (date[0] - '0') * 10 + (date[1] - '0');
+        int dayInMonth = (date[3] - '0') * 10 + (date[4] - '0');
+
+        int monthDay[13] = {
+            0,
+            31, 28, 31, 30, 31, 30,
+            31, 31, 30, 31, 30, 31
+        };
+
+        int day = 0;
+
+        if (month < 6) {
+            day = -1;
+        } else {
+            for (int i = 6; i < month; ++i) {
+                day += monthDay[i];
+            }
+            day += dayInMonth - 1;
+        }
 
         if (day < t.saleL || day > t.saleR) {
             return -1;
         }
 
+        if (day < 0 || day >= MAX_DAY) {
+            return -1;
+        }
+
         SeatRec seat;
+        bool hasSeat = false;
 
         if (t.released) {
-            seatFile.read(t.seatPos, seat);
+            if (!get_seat(t, day, seat)) {
+                return -1;
+            }
+            hasSeat = true;
         }
 
         std::cout << t.trainID << ' ' << t.type << '\n';
@@ -214,7 +240,7 @@ public:
             if (i == t.stationNum - 1) {
                 std::cout << 'x';
             } else {
-                if (t.released) {
+                if (hasSeat) {
                     std::cout << seat.seat[day][i];
                 } else {
                     std::cout << t.seatNum;
