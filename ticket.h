@@ -151,14 +151,102 @@ private:
 
 
     bool better_transfer(const Ticket &a1,
-                         const Ticket &a2,
-                         const Ticket &b1,
-                         const Ticket &b2,
-                         const std::string &sortType) {
-        return false;
+                     const Ticket &a2,
+                     const Ticket &b1,
+                     const Ticket &b2,
+                     const std::string &sortType) {
+        if (sortType == "cost") {
+            int ca = a1.price + a2.price;
+            int cb = b1.price + b2.price;
+
+            if (ca != cb) {
+                return ca < cb;
+            }
+
+            int ta = a2.arriveTime - a1.leaveTime;
+            int tb = b2.arriveTime - b1.leaveTime;
+
+            if (ta != tb) {
+                return ta < tb;
+            }
+
+            int c = std::strcmp(a1.trainID, b1.trainID);
+            if (c != 0) {
+                return c > 0;
+            }
+
+            return std::strcmp(a2.trainID, b2.trainID) > 0;
+        }
+
+        int ta = a2.arriveTime - a1.leaveTime;
+        int tb = b2.arriveTime - b1.leaveTime;
+
+        if (ta != tb) {
+            return ta < tb;
+        }
+
+        int ca = a1.price + a2.price;
+        int cb = b1.price + b2.price;
+
+        if (ca != cb) {
+            return ca < cb;
+        }
+
+        int c = std::strcmp(a1.trainID, b1.trainID);
+        if (c != 0) {
+            return c > 0;
+        }
+
+        return std::strcmp(a2.trainID, b2.trainID) > 0;
     }
 
-    void check_queue(const char *trainID, int trainDay){}
+    void check_queue(const char *trainID, int trainDay) {
+        QueueKey k = {};
+        std::strcpy(k.trainID, trainID);
+        k.trainDate = trainDay;
+        k.time = -1;
+        k.pos = -1;
+
+        int p;
+        int id;
+        QueueKey res;
+
+        if (!order->queue_index().cursor_lower_bound(k, p, id, res)) {
+            return;
+        }
+
+        while (std::strcmp(res.trainID, trainID) == 0 &&
+               res.trainDate == trainDay) {
+            OrderRec o;
+            order->read_order(res.pos, o);
+
+            if (o.status == pending) {
+                TrainRec t;
+                int trainPos;
+
+                if (!train->get_train_by_id(o.trainID, t, trainPos)) {
+                    return;
+                }
+
+                int seat = calc_seat(t, o.trainDate, o.fromID, o.toID);
+
+                if (seat > o.num) {
+                    sub_seat(t, o.trainDate, o.fromID, o.toID, o.num);
+
+                    o.status = success;
+                    order->update_order(res.pos, o);
+
+                    order->del_queue(res);
+                }
+
+                return;
+            }
+
+            if (!order->queue_index().cursor_next(p, id, res)) {
+                break;
+            }
+               }
+    }
 
 public:
     TicketSys(UserSys *u, TrainSys *t, OrderSys *o);
@@ -225,12 +313,102 @@ public:
     }
 
     int query_transfer(const std::string &from,
-                       const std::string &to,
-                       const std::string &date,
-                       const std::string &sortType) {
-        std::cout << 0 << '\n';
-        return 0;
+                   const std::string &to,
+                   const std::string &date,
+                   const std::string &sortType) {
+    Ticket best1;
+    Ticket best2;
+    bool found = false;
+
+    StaKey k = {};
+    std::strcpy(k.station, from.c_str());
+    k.trainID[0] = '\0';
+    k.pos = -1;
+
+    int p;
+    int id;
+    StaKey res;
+
+    int queryDay = date_to_int(date.c_str());
+
+    if (train->station_index().cursor_lower_bound(k, p, id, res)) {
+        while (std::strcmp(res.station, from.c_str()) == 0) {
+            TrainRec t1;
+            int pos1;
+
+            if (train->get_train_by_id(res.trainID, t1, pos1)) {
+                int fromID = train->station_id(t1, from.c_str());
+
+                if (fromID != -1) {
+                    for (int midID1 = fromID + 1; midID1 < t1.stationNum; ++midID1) {
+                        Ticket first;
+
+                        if (!make_ticket(t1, fromID, midID1, queryDay, first)) {
+                            continue;
+                        }
+
+                        StaKey mk = {};
+                        std::strcpy(mk.station, t1.stations[midID1]);
+                        mk.trainID[0] = '\0';
+                        mk.pos = -1;
+
+                        int p2;
+                        int id2;
+                        StaKey res2;
+
+                        if (!train->station_index().cursor_lower_bound(mk, p2, id2, res2)) {
+                            continue;
+                        }
+
+                        while (std::strcmp(res2.station, t1.stations[midID1]) == 0) {
+                            if (std::strcmp(res2.trainID, t1.trainID) != 0) {
+                                TrainRec t2;
+                                int pos2;
+
+                                if (train->get_train_by_id(res2.trainID, t2, pos2)) {
+                                    int midID2 = train->station_id(t2, t1.stations[midID1]);
+                                    int toID2 = train->station_id(t2, to.c_str());
+
+                                    if (midID2 != -1 && toID2 != -1 && midID2 < toID2) {
+                                        Ticket second;
+
+                                        if (make_ticket(t2, midID2, toID2, queryDay, second)) {
+                                            if (second.leaveTime >= first.arriveTime) {
+                                                if (!found ||
+                                                    better_transfer(first, second, best1, best2, sortType)) {
+                                                    best1 = first;
+                                                    best2 = second;
+                                                    found = true;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (!train->station_index().cursor_next(p2, id2, res2)) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (!train->station_index().cursor_next(p, id, res)) {
+                break;
+            }
+        }
     }
+
+    if (!found) {
+        std::cout << 0 << '\n';
+    } else {
+        print_ticket(best1);
+        print_ticket(best2);
+    }
+
+    return 0;
+}
 
     int buy_ticket(const std::string &username,
                    const std::string &trainID,
@@ -332,8 +510,43 @@ public:
     }
 
     int refund_ticket(const std::string &username,
-                      int nth) {
-        return -1;
+                  int nth) {
+        if (!user->check_login(username.c_str())) {
+            return -1;
+        }
+
+        OrderRec o;
+        int pos;
+
+        if (!order->get_nth_order(username, nth, o, pos)) {
+            return -1;
+        }
+
+        if (o.status == refunded) {
+            return -1;
+        }
+
+        if (o.status == pending) {
+            o.status = refunded;
+            order->update_order(pos, o);
+            return 0;
+        }
+
+        TrainRec t;
+        int trainPos;
+
+        if (!train->get_train_by_id(o.trainID, t, trainPos)) {
+            return -1;
+        }
+
+        o.status = refunded;
+        order->update_order(pos, o);
+
+        add_seat(t, o.trainDate, o.fromID, o.toID, o.num);
+
+        check_queue(o.trainID, o.trainDate);
+
+        return 0;
     }
 
     void clear();

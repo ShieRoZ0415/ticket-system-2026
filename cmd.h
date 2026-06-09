@@ -231,6 +231,22 @@ public:
             } else {
                 order.query_order(cmd.u);
             }
+        } else if (cmd.name == "query_transfer") {
+            std::string sortType = "time";
+
+            if (cmd.hasP) {
+                sortType = cmd.p;
+            }
+
+            ticket.query_transfer(cmd.s, cmd.t, cmd.d, sortType);
+        } else if (cmd.name == "refund_ticket") {
+            int nth = 1;
+
+            if (!cmd.n.empty()) {
+                nth = to_int(cmd.n);
+            }
+
+            std::cout << ticket.refund_ticket(cmd.u, nth) << '\n';
         }
         else {
             std::cout << -1 << '\n';
