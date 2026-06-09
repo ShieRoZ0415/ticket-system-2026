@@ -25,8 +25,7 @@ private:
 
 
     int find_user_pos(const char *username) {
-        UserKey k;
-        std::memset(&k, 0, sizeof(k));
+        UserKey k = {};
         std::strcpy(k.username, username);
         k.pos = -1;
 
@@ -71,8 +70,7 @@ public:
             return -1;
         }
 
-        UserRec u;
-        std::memset(&u, 0, sizeof(u));
+        UserRec u = {};
 
         std::strcpy(u.username, username.c_str());
         std::strcpy(u.password, password.c_str());
@@ -102,8 +100,7 @@ public:
 
         int pos = userFile.append(u);
 
-        UserKey k;
-        std::memset(&k, 0, sizeof(k));
+        UserKey k = {};
         std::strcpy(k.username, u.username);
         k.pos = pos;
 

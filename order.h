@@ -21,8 +21,7 @@ public:
     int add_order(const OrderRec &o) {
         int pos = orderFile.append(o);
 
-        OrderKey k;
-        std::memset(&k, 0, sizeof(k));
+        OrderKey k = {};
         std::strcpy(k.username, o.username);
         k.revTime = 2000000000 - o.time;
         k.pos = pos;
@@ -40,8 +39,90 @@ public:
         orderFile.read(pos, o);
     }
 
+    bool get_nth_order(const std::string &username, int nth, OrderRec &o, int &pos) {
+        OrderKey k = {};
+        std::strcpy(k.username, username.c_str());
+        k.revTime = -1;
+        k.pos = -1;
+
+        int p;
+        int id;
+        OrderKey res;
+
+        if (!orderIdx.cursor_lower_bound(k, p, id, res)) {
+            return false;
+        }
+
+        int cnt = 0;
+
+        while (std::strcmp(res.username, username.c_str()) == 0) {
+            ++cnt;
+
+            if (cnt == nth) {
+                pos = res.pos;
+                orderFile.read(pos, o);
+                return true;
+            }
+
+            if (!orderIdx.cursor_next(p, id, res)) {
+                break;
+            }
+        }
+
+        return false;
+    }
+
     int query_order(const std::string &username) {
-        return -1;
+        OrderKey k = {};
+        std::strcpy(k.username, username.c_str());
+        k.revTime = -1;
+        k.pos = -1;
+
+        int p;
+        int id;
+        OrderKey res;
+
+        OrderRec ans[10000];
+        int cnt = 0;
+
+        if (orderIdx.cursor_lower_bound(k, p, id, res)) {
+            while (std::strcmp(res.username, username.c_str()) == 0) {
+                orderFile.read(res.pos, ans[cnt]);
+                ++cnt;
+
+                if (!orderIdx.cursor_next(p, id, res)) {
+                    break;
+                }
+            }
+        }
+
+        std::cout << cnt << '\n';
+
+        for (int i = cnt - 1; i >= 0; --i) {
+            if (ans[i].status == success) {
+                std::cout << "[success] ";
+            } else if (ans[i].status == pending) {
+                std::cout << "[pending] ";
+            } else {
+                std::cout << "[refunded] ";
+            }
+
+            std::cout << ans[i].trainID << ' '
+                      << ans[i].from << ' ';
+
+            print_time(ans[i].leaveTime);
+
+            std::cout << " -> "
+                      << ans[i].to << ' ';
+
+            print_time(ans[i].arriveTime);
+
+            std::cout << ' '
+                      << ans[i].price << ' '
+                      << ans[i].num << '\n';
+        }
+
+        return 0;
     }
 
     void add_queue(const QueueKey &k) {

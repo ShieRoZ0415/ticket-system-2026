@@ -207,7 +207,32 @@ public:
         } else if (cmd.name == "clean") {
             clean();
             std::cout << 0 << '\n';
-        } else {
+        } else if (cmd.name == "query_ticket") {
+            std::string sortType = "time";
+            if (cmd.hasP) {
+                sortType = cmd.p;
+            }
+            ticket.query_ticket(cmd.s, cmd.t, cmd.d, sortType);
+        } else if (cmd.name == "buy_ticket") {
+            int num = to_int(cmd.n);
+            bool queue = false;
+            if (cmd.hasQ && cmd.q == "true") {
+                queue = true;
+            }
+            int res = ticket.buy_ticket(cmd.u, cmd.i, cmd.d, num, cmd.f, cmd.t, queue, cmd.timestamp);
+            if (res == -2) {
+                std::cout << 'queue\n';
+            } else {
+                std::cout << res << '\n';
+            }
+        } else if (cmd.name == "query_order") {
+            if (!user.check_login(cmd.u.c_str())) {
+                std::cout << -1 << '\n';
+            } else {
+                order.query_order(cmd.u);
+            }
+        }
+        else {
             std::cout << -1 << '\n';
         }
     }
