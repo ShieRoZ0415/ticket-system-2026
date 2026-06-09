@@ -173,7 +173,7 @@ inline void build_train_from_cmd(const Cmd &cmd, TrainRec &t) {
 
     cnt = split_str(cmd.o, tmp);
     for (int i = 0; i < cnt; ++i) {
-        t.stopover[i] = to_int(tmp[i]);
+        t.stopover[i + 1] = to_int(tmp[i]); // 第 1 个停站时间应对应第 1 站
     }
 
     cnt = split_str(cmd.d, tmp);

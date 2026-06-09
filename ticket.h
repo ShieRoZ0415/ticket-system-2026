@@ -39,7 +39,7 @@ private:
 
         int ans = 1000000000;
 
-        for (int i = l; i <= r; ++i) {
+        for (int i = l; i < r; ++i) {   // 余票区间为 (l, r)
             if (s.seat[trainDay][i] < ans) {
                 ans = s.seat[trainDay][i];
             }
@@ -47,6 +47,7 @@ private:
 
         return ans;
     }
+
     void add_seat(const TrainRec &t, int trainDay, int l, int r, int num){
         SeatRec s;
 
@@ -54,12 +55,13 @@ private:
             return;
         }
 
-        for (int i = l; i <= r; ++i) {
+        for (int i = l; i < r; ++i) {   // 余票区间为 (l, r)
             s.seat[trainDay][i] += num;
         }
 
         train->write_seat(t, trainDay, s);
     }
+
     void sub_seat(const TrainRec &t, int trainDay, int l, int r, int num){
         SeatRec s;
 
@@ -67,7 +69,7 @@ private:
             return;
         }
 
-        for (int i = l; i <= r; ++i) {
+        for (int i = l; i < r; ++i) {   // 余票区间为 (l, r)
             s.seat[trainDay][i] -= num;
         }
 
@@ -89,7 +91,7 @@ private:
 
         int trainDay = get_origin_day(t, fromID, queryDay);
 
-        if (queryDay < t.saleL || queryDay > t.saleR) {
+        if (trainDay < t.saleL || trainDay > t.saleR) {
             return false;
         }
 
@@ -109,7 +111,6 @@ private:
 
         ans.leaveTime = trainDay * 1440 + t.startTime + t.depOffset[fromID];
         ans.arriveTime = trainDay * 1440 + t.startTime + t.arrOffset[toID];
-
         ans.price = t.prePrice[toID] - t.prePrice[fromID];
         ans.seat = seat;
 
@@ -131,7 +132,7 @@ private:
             return ta < tb;
         }
 
-        return std::strcmp(a.trainID, b.trainID) > 0;
+        return std::strcmp(a.trainID, b.trainID) < 0;   // 升序
     }
     void print_ticket(const Ticket &x) {
         std::cout << x.trainID << ' '
@@ -201,52 +202,61 @@ private:
     }
 
     void check_queue(const char *trainID, int trainDay) {
-        QueueKey k = {};
-        std::strcpy(k.trainID, trainID);
-        k.trainDate = trainDay;
-        k.time = -1;
-        k.pos = -1;
+        while (true) {
+            QueueKey k = {};
+            std::strcpy(k.trainID, trainID);
+            k.trainDate = trainDay;
+            k.time = -1;
+            k.pos = -1;
 
-        int p;
-        int id;
-        QueueKey res;
+            int p;
+            int id;
+            QueueKey res;
 
-        if (!order->queue_index().cursor_lower_bound(k, p, id, res)) {
-            return;
-        }
+            bool changed = false;
 
-        while (std::strcmp(res.trainID, trainID) == 0 &&
-               res.trainDate == trainDay) {
-            OrderRec o;
-            order->read_order(res.pos, o);
-
-            if (o.status == pending) {
-                TrainRec t;
-                int trainPos;
-
-                if (!train->get_train_by_id(o.trainID, t, trainPos)) {
-                    return;
-                }
-
-                int seat = calc_seat(t, o.trainDate, o.fromID, o.toID);
-
-                if (seat > o.num) {
-                    sub_seat(t, o.trainDate, o.fromID, o.toID, o.num);
-
-                    o.status = success;
-                    order->update_order(res.pos, o);
-
-                    order->del_queue(res);
-                }
-
+            if (!order->queue_index().cursor_lower_bound(k, p, id, res)) {
                 return;
             }
 
-            if (!order->queue_index().cursor_next(p, id, res)) {
-                break;
+            while (std::strcmp(res.trainID, trainID) == 0 &&
+                   res.trainDate == trainDay) {
+                OrderRec o;
+                order->read_order(res.pos, o);
+
+                if (o.status == pending) {
+                    TrainRec t;
+                    int trainPos;
+
+                    if (!train->get_train_by_id(o.trainID, t, trainPos)) {
+                        return;
+                    }
+
+                    int seat = calc_seat(t, o.trainDate, o.fromID, o.toID);
+
+                    if (seat >= o.num) {
+                        sub_seat(t, o.trainDate, o.fromID, o.toID, o.num);
+
+                        o.status = success;
+                        order->update_order(res.pos, o);
+
+                        order->del_queue(res);
+
+                        changed = true;
+                        break;
+                    }
+                }
+
+                if (!order->queue_index().cursor_next(p, id, res)) {
+                    break;
+                }
+                   }
+
+            if (!changed) {
+                return;
             }
-               }
-    }
+        }
+    }   // 每删掉一个候补，从队列开头重新扫描，避免删除当前节点后继续使用旧位置。
 
 public:
     TicketSys(UserSys *u, TrainSys *t, OrderSys *o)
@@ -450,7 +460,7 @@ public:
             return -1;
         }
 
-        if (tk.seat > num) {
+        if (tk.seat >= num) {   // 相等时购票成功
             sub_seat(t, tk.trainDate, fromID, toID, num);
 
             OrderRec o = {};
@@ -531,6 +541,13 @@ public:
         if (o.status == pending) {
             o.status = refunded;
             order->update_order(pos, o);
+            QueueKey qk = {};
+            std::strcpy(qk.trainID, o.trainID);
+            qk.trainDate = o.trainDate;
+            qk.time = o.time;
+            qk.pos = pos;
+
+            order->del_queue(qk);   // 将已退款的后补订单从等待队列中删除
             return 0;
         }
 

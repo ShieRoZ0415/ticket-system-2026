@@ -47,20 +47,18 @@ inline int date_to_int(const char *s){
     return before + day - 1;
 }
 
-inline void int_to_date(int d, char *s) {
-    int month;
-    int day;
+inline void int_to_date(int d, char *s) {   // 列车运行可能跨天到 9 月
+    int month = 6;
+    int days[7] = {30, 31, 31, 30, 31, 30, 31};
 
-    if (d < 30) {
-        month = 6;
-        day = d + 1;
-    } else if (d < 61) {
-        month = 7;
-        day = d - 30 + 1;
-    } else {
-        month = 8;
-        day = d - 61 + 1;
+    int idx = 0;
+    while (idx < 7 && d >= days[idx]) {
+        d -= days[idx];
+        ++idx;
+        ++month;
     }
+
+    int day = d + 1;
 
     s[0] = char('0' + month / 10);
     s[1] = char('0' + month % 10);

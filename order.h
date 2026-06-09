@@ -81,13 +81,10 @@ public:
         int p;
         int id;
         OrderKey res;
-
-        OrderRec ans[10000];
         int cnt = 0;
 
         if (orderIdx.cursor_lower_bound(k, p, id, res)) {
             while (std::strcmp(res.username, username.c_str()) == 0) {
-                orderFile.read(res.pos, ans[cnt]);
                 ++cnt;
 
                 if (!orderIdx.cursor_next(p, id, res)) {
@@ -95,31 +92,34 @@ public:
                 }
             }
         }
-
         std::cout << cnt << '\n';
 
-        for (int i = cnt - 1; i >= 0; --i) {
-            if (ans[i].status == success) {
-                std::cout << "[success] ";
-            } else if (ans[i].status == pending) {
-                std::cout << "[pending] ";
-            } else {
-                std::cout << "[refunded] ";
+        if (orderIdx.cursor_lower_bound(k, p, id, res)) {
+            while (std::strcmp(res.username, username.c_str()) == 0) {
+                OrderRec o;
+                orderFile.read(res.pos, o);
+
+                if (o.status == success) {
+                    std::cout << "[success] ";
+                } else if (o.status == pending) {
+                    std::cout << "[pending] ";
+                } else {
+                    std::cout << "[refunded] ";
+                }
+                std::cout << o.trainID << ' '
+                          << o.from << ' ';
+                print_time(o.leaveTime);
+                std::cout << " -> "
+                          << o.to << ' ';
+                print_time(o.arriveTime);
+                std::cout << ' '
+                          << o.price << ' '
+                          << o.num << '\n';
+
+                if (!orderIdx.cursor_next(p, id, res)) {
+                    break;
+                }
             }
-
-            std::cout << ans[i].trainID << ' '
-                      << ans[i].from << ' ';
-
-            print_time(ans[i].leaveTime);
-
-            std::cout << " -> "
-                      << ans[i].to << ' ';
-
-            print_time(ans[i].arriveTime);
-
-            std::cout << ' '
-                      << ans[i].price << ' '
-                      << ans[i].num << '\n';
         }
 
         return 0;
