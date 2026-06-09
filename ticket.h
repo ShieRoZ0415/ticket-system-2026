@@ -249,7 +249,9 @@ private:
     }
 
 public:
-    TicketSys(UserSys *u, TrainSys *t, OrderSys *o);
+    TicketSys(UserSys *u, TrainSys *t, OrderSys *o)
+    : user(u), train(t), order(o) {
+    }
 
     int query_ticket(const std::string &from,
                      const std::string &to,
@@ -549,7 +551,7 @@ public:
         return 0;
     }
 
-    void clear();
+    void clear(){}
 };
 
 #endif
