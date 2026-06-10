@@ -35,7 +35,7 @@ private:
     Header h;
     Less less;
 
-    static const int CACHE_SIZE = 32;
+    static const int CACHE_SIZE = 64;
 
     Node cacheNode[CACHE_SIZE];
     int cachePos[CACHE_SIZE];
