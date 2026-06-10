@@ -35,6 +35,55 @@ private:
     Header h;
     Less less;
 
+    static const int CACHE_SIZE = 32;
+
+    Node cacheNode[CACHE_SIZE];
+    int cachePos[CACHE_SIZE];
+    int cacheTime[CACHE_SIZE];
+    int cacheNow;
+
+    void init_cache() {
+        cacheNow = 0;
+
+        for (int i = 0; i < CACHE_SIZE; ++i) {
+            cachePos[i] = -1;
+            cacheTime[i] = 0;
+        }
+    }
+
+    int find_cache(int p) {
+        for (int i = 0; i < CACHE_SIZE; ++i) {
+            if (cachePos[i] == p) {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    void put_cache(int p, const Node &x) {
+        int id = find_cache(p);
+
+        if (id == -1) {
+            id = 0;
+
+            for (int i = 1; i < CACHE_SIZE; ++i) {
+                if (cachePos[i] == -1) {
+                    id = i;
+                    break;
+                }
+
+                if (cachePos[id] != -1 && cacheTime[i] < cacheTime[id]) {
+                    id = i;
+                }
+            }
+        }
+
+        cachePos[id] = p;
+        cacheNode[id] = x;
+        cacheTime[id] = ++cacheNow;
+    }
+
     long long off(int p) {
         return sizeof(Header) + 1ll * p * sizeof(Node);
     }
@@ -70,13 +119,30 @@ private:
     }
 
     bool readnode(int p, Node &x) {
+        int id = find_cache(p);
+
+        if (id != -1) {
+            x = cacheNode[id];
+            cacheTime[id] = ++cacheNow;
+            return true;
+        }
+
         std::fseek(fp, off(p), SEEK_SET);
-        return std::fread(&x, sizeof(x), 1, fp) == 1;
+
+        if (std::fread(&x, sizeof(x), 1, fp) != 1) {
+            return false;
+        }
+
+        put_cache(p, x);
+
+        return true;
     }
 
     void writenode(int p, const Node &x) {
         std::fseek(fp, off(p), SEEK_SET);
         std::fwrite(&x, sizeof(x), 1, fp);
+
+        put_cache(p, x);
     }
 
     int newnode(int leaf, int parent) {
@@ -656,6 +722,8 @@ private:
 
 public:
     explicit BPT(const char *name) {
+        init_cache();
+
         fp = std::fopen(name, "rb+");
 
         if (!fp) {
@@ -705,6 +773,8 @@ public:
     }
 
     void clear() {
+        init_cache();
+
         h.root = 0;
         h.tot = 1;
 
