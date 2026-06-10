@@ -8,6 +8,7 @@ class Store {
 private:
     FILE *fp;
     char filename[64];
+    int tot;
 
 public:
     Store(const char *name) {
@@ -20,6 +21,9 @@ public:
 
         fp = std::fopen(filename, "rb+");
         if (!fp) fp = std::fopen(filename, "wb+");
+        std::fseek(fp, 0, SEEK_END);
+        long long bytes = std::ftell(fp);
+        tot = (int)(bytes / sizeof(T));
     }
 
     ~Store() {
@@ -30,13 +34,12 @@ public:
     }
 
     int size() {
-        std::fseek(fp, 0, SEEK_END);
-        long long bytes = std::ftell(fp);
-        return (int)(bytes / sizeof(T));
+        return tot;
     }
 
     int append(const T &x) {
-        int p = size();
+        int p = tot;
+        ++tot;
         std::fseek(fp, 1ll * p * sizeof(T), SEEK_SET);
         std::fwrite(&x, sizeof(T), 1, fp);
         return p;
@@ -53,8 +56,11 @@ public:
     }
 
     void clear() {
-        std::fclose(fp);
+        if (fp) {
+            std::fclose(fp);
+        }
         fp = std::fopen(filename, "wb+");
+        tot = 0;
     }
 };
 
