@@ -3,7 +3,7 @@
 
 #include "ticket.h"
 
-inline int split_str(const std::string &s, std::string a[]) {
+inline int split_str(const std::string& s, std::string a[]) {
     if (s == "_") {
         return 0;
     }
@@ -15,7 +15,8 @@ inline int split_str(const std::string &s, std::string a[]) {
         if (s[i] == '|') {
             a[cnt++] = cur;
             cur.clear();
-        } else {
+        }
+        else {
             cur += s[i];
         }
     }
@@ -80,73 +81,128 @@ public:
         hasQ = false;
     }
 
-    int parse_line(const std::string &line) {
+    int parse_line(const std::string& line) {
         init();
 
-        std::string token[80];
-        int cnt = 0;
-
-        int pos = 0;
         int len = (int)line.size();
+        int pos = 0;
+
+        if (len == 0) {
+            return 0;
+        }
+
+        if (line[pos] != '[') {
+            return 0;
+        }
+
+        ++pos;
+
+        timestamp = 0;
+
+        while (pos < len && line[pos] != ']') {
+            timestamp = timestamp * 10 + line[pos] - '0';
+            ++pos;
+        }
+
+        if (pos < len && line[pos] == ']') {
+            ++pos;
+        }
+
+        while (pos < len && line[pos] == ' ') {
+            ++pos;
+        }
+
+        int l = pos;
+
+        while (pos < len && line[pos] != ' ') {
+            ++pos;
+        }
+
+        name.assign(line, l, pos - l);
 
         while (pos < len) {
-            while (pos < len && line[pos] == ' ') ++pos;
-            if (pos >= len) break;
-
-            std::string cur;
-            while (pos < len && line[pos] != ' ') {
-                cur += line[pos];
+            while (pos < len && line[pos] == ' ') {
                 ++pos;
             }
 
-            token[cnt++] = cur;
-        }
+            if (pos >= len) {
+                break;
+            }
 
-        if (cnt < 2) return 0;
+            if (line[pos] != '-') {
+                break;
+            }
 
-        timestamp = 0;
-        for (int j = 1; j + 1 < (int)token[0].size(); ++j) {
-            timestamp = timestamp * 10 + token[0][j] - '0';
-        }
+            char key = line[pos + 1];
+            pos += 2;
 
-        name = token[1];
+            while (pos < len && line[pos] == ' ') {
+                ++pos;
+            }
 
-        for (int j = 2; j + 1 < cnt; j += 2) {
-            char key = token[j][1];
-            std::string val = token[j + 1];
+            l = pos;
 
-            if (key == 'c') c = val;
-            else if (key == 'u') u = val;
+            while (pos < len && line[pos] != ' ') {
+                ++pos;
+            }
+
+            if (key == 'c') {
+                c.assign(line, l, pos - l);
+            }
+            else if (key == 'u') {
+                u.assign(line, l, pos - l);
+            }
             else if (key == 'p') {
-                p = val;
+                p.assign(line, l, pos - l);
                 hasP = true;
-            } else if (key == 'n') {
-                n = val;
+            }
+            else if (key == 'n') {
+                n.assign(line, l, pos - l);
                 hasN = true;
-            } else if (key == 'm') {
-                m = val;
+            }
+            else if (key == 'm') {
+                m.assign(line, l, pos - l);
                 hasM = true;
-            } else if (key == 'g') {
-                g = val;
+            }
+            else if (key == 'g') {
+                g.assign(line, l, pos - l);
                 hasG = true;
-            } else if (key == 'i') i = val;
-            else if (key == 's') s = val;
-            else if (key == 't') t = val;
-            else if (key == 'd') d = val;
-            else if (key == 'f') f = val;
+            }
+            else if (key == 'i') {
+                i.assign(line, l, pos - l);
+            }
+            else if (key == 's') {
+                s.assign(line, l, pos - l);
+            }
+            else if (key == 't') {
+                t.assign(line, l, pos - l);
+            }
+            else if (key == 'd') {
+                d.assign(line, l, pos - l);
+            }
+            else if (key == 'f') {
+                f.assign(line, l, pos - l);
+            }
             else if (key == 'q') {
-                q = val;
+                q.assign(line, l, pos - l);
                 hasQ = true;
-            } else if (key == 'y') y = val;
-            else if (key == 'x') x = val;
-            else if (key == 'o') o = val;
+            }
+            else if (key == 'y') {
+                y.assign(line, l, pos - l);
+            }
+            else if (key == 'x') {
+                x.assign(line, l, pos - l);
+            }
+            else if (key == 'o') {
+                o.assign(line, l, pos - l);
+            }
         }
 
         return 1;
     }
 };
 
-inline void build_train_from_cmd(const Cmd &cmd, TrainRec &t) {
+inline void build_train_from_cmd(const Cmd& cmd, TrainRec& t) {
     std::memset(&t, 0, sizeof(t));
 
     std::strcpy(t.trainID, cmd.i.c_str());
@@ -196,8 +252,7 @@ private:
     TicketSys ticket;
 
 public:
-    Sys():ticket(&user, &train, &order) {
-    }
+    Sys() : ticket(&user, &train, &order) {}
 
     void run() {
         std::string line;
@@ -217,7 +272,7 @@ public:
         }
     }
 
-    void work(Cmd &cmd) {
+    void work(Cmd& cmd) {
         std::cout << '[' << cmd.timestamp << "] ";
 
         if (cmd.name == "add_user") {
@@ -226,23 +281,28 @@ public:
 
             int res = user.add_user(cmd.c, cmd.u, cmd.p, cmd.n, cmd.m, pri);
             std::cout << res << '\n';
-        } else if (cmd.name == "login") {
+        }
+        else if (cmd.name == "login") {
             std::cout << user.login(cmd.u, cmd.p) << '\n';
-        } else if (cmd.name == "logout") {
+        }
+        else if (cmd.name == "logout") {
             std::cout << user.logout(cmd.u) << '\n';
-        } else if (cmd.name == "query_profile") {
+        }
+        else if (cmd.name == "query_profile") {
             UserRec ans;
             int res = user.query_profile(cmd.c, cmd.u, ans);
 
             if (res == -1) {
                 std::cout << -1 << '\n';
-            } else {
-                std::cout << ans.username << ' '
-                          << ans.name << ' '
-                          << ans.mail << ' '
-                          << ans.privilege << '\n';
             }
-        } else if (cmd.name == "modify_profile") {
+            else {
+                std::cout << ans.username << ' '
+                    << ans.name << ' '
+                    << ans.mail << ' '
+                    << ans.privilege << '\n';
+            }
+        }
+        else if (cmd.name == "modify_profile") {
             int pri = 0;
             if (!cmd.g.empty()) pri = to_int(cmd.g);
 
@@ -261,37 +321,45 @@ public:
 
             if (res == -1) {
                 std::cout << -1 << '\n';
-            } else {
-                std::cout << ans.username << ' '
-                          << ans.name << ' '
-                          << ans.mail << ' '
-                          << ans.privilege << '\n';
             }
-        }else if (cmd.name == "add_train") {
+            else {
+                std::cout << ans.username << ' '
+                    << ans.name << ' '
+                    << ans.mail << ' '
+                    << ans.privilege << '\n';
+            }
+        }
+        else if (cmd.name == "add_train") {
             TrainRec t;
             build_train_from_cmd(cmd, t);
 
             std::cout << train.add_train(t) << '\n';
-        } else if (cmd.name == "delete_train") {
+        }
+        else if (cmd.name == "delete_train") {
             std::cout << train.delete_train(cmd.i) << '\n';
-        } else if (cmd.name == "release_train") {
+        }
+        else if (cmd.name == "release_train") {
             std::cout << train.release_train(cmd.i) << '\n';
-        } else if (cmd.name == "query_train") {
+        }
+        else if (cmd.name == "query_train") {
             int res = train.query_train(cmd.i, cmd.d);
 
             if (res == -1) {
                 std::cout << -1 << '\n';
             }
-        }else if (cmd.name == "clean") {
+        }
+        else if (cmd.name == "clean") {
             clean();
             std::cout << 0 << '\n';
-        } else if (cmd.name == "query_ticket") {
+        }
+        else if (cmd.name == "query_ticket") {
             std::string sortType = "time";
             if (cmd.hasP) {
                 sortType = cmd.p;
             }
             ticket.query_ticket(cmd.s, cmd.t, cmd.d, sortType);
-        } else if (cmd.name == "buy_ticket") {
+        }
+        else if (cmd.name == "buy_ticket") {
             int num = to_int(cmd.n);
             bool queue = false;
             if (cmd.hasQ && cmd.q == "true") {
@@ -300,16 +368,20 @@ public:
             int res = ticket.buy_ticket(cmd.u, cmd.i, cmd.d, num, cmd.f, cmd.t, queue, cmd.timestamp);
             if (res == -2) {
                 std::cout << "queue\n";
-            } else {
+            }
+            else {
                 std::cout << res << '\n';
             }
-        } else if (cmd.name == "query_order") {
+        }
+        else if (cmd.name == "query_order") {
             if (!user.check_login(cmd.u.c_str())) {
                 std::cout << -1 << '\n';
-            } else {
+            }
+            else {
                 order.query_order(cmd.u);
             }
-        } else if (cmd.name == "query_transfer") {
+        }
+        else if (cmd.name == "query_transfer") {
             std::string sortType = "time";
 
             if (cmd.hasP) {
@@ -317,7 +389,8 @@ public:
             }
 
             ticket.query_transfer(cmd.s, cmd.t, cmd.d, sortType);
-        } else if (cmd.name == "refund_ticket") {
+        }
+        else if (cmd.name == "refund_ticket") {
             int nth = 1;
 
             if (!cmd.n.empty()) {

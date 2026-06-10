@@ -13,6 +13,27 @@ private:
     BPT<TrainKey> trainIdx;
     BPT<StaKey> staIdx;
 
+    struct MemStaNode {
+        int trainPos;
+        int pos;
+        int next;
+    };
+
+    struct MemStaHead {
+        char station[STA_LEN];
+        int head;
+        int cnt;
+    };
+
+    static const int MEM_HEAD_MAX = 20000;
+    static const int MEM_NODE_MAX = 400000;
+
+    MemStaHead *memHead;
+    MemStaNode *memNode;
+
+    int memHeadCnt;
+    int memNodeCnt;
+
     int find_train_pos(const char *trainID) {
         TrainKey k = {};
         std::strcpy(k.trainID, trainID);
@@ -84,6 +105,166 @@ public:
           seatFile("seat.dat"),
           trainIdx("train.bpt"),
           staIdx("station.bpt") {
+        memHead = new MemStaHead[MEM_HEAD_MAX];
+        memNode = new MemStaNode[MEM_NODE_MAX];
+        rebuild_mem_station();
+    }
+
+
+    void init_mem_station() {
+        memHeadCnt = 0;
+        memNodeCnt = 0;
+    }
+
+    int find_mem_head(const char *station) {
+        int l = 0;
+        int r = memHeadCnt - 1;
+
+        while (l <= r) {
+            int m = (l + r) >> 1;
+            int c = std::strcmp(memHead[m].station, station);
+
+            if (c == 0) {
+                return m;
+            }
+
+            if (c < 0) {
+                l = m + 1;
+            } else {
+                r = m - 1;
+            }
+        }
+
+        return -1;
+    }
+
+    int lower_mem_head(const char *station) {
+        int l = 0;
+        int r = memHeadCnt;
+
+        while (l < r) {
+            int m = (l + r) >> 1;
+
+            if (std::strcmp(memHead[m].station, station) < 0) {
+                l = m + 1;
+            } else {
+                r = m;
+            }
+        }
+
+        return l;
+    }
+
+    int get_mem_head(const char *station) {
+        int p = lower_mem_head(station);
+
+        if (p < memHeadCnt &&
+            std::strcmp(memHead[p].station, station) == 0) {
+            return p;
+            }
+
+        if (memHeadCnt >= MEM_HEAD_MAX) {
+            return -1;
+        }
+
+        for (int i = memHeadCnt; i > p; --i) {
+            memHead[i] = memHead[i - 1];
+        }
+
+        std::strcpy(memHead[p].station, station);
+        memHead[p].head = -1;
+        memHead[p].cnt = 0;
+
+        ++memHeadCnt;
+
+        return p;
+    }
+
+    void add_mem_station(const char *station, int trainPos, int pos) {
+        int h = get_mem_head(station);
+
+        if (h == -1) {
+            return;
+        }
+
+        if (memNodeCnt >= MEM_NODE_MAX) {
+            return;
+        }
+
+        int id = memNodeCnt++;
+
+        memNode[id].trainPos = trainPos;
+        memNode[id].pos = pos;
+        memNode[id].next = memHead[h].head;
+        memHead[h].head = id;
+
+        ++memHead[h].cnt;
+    }
+
+    void rebuild_mem_station() {
+        init_mem_station();
+
+        StaKey k = {};
+        k.station[0] = '\0';
+        k.trainID[0] = '\0';
+        k.pos = -1;
+
+        int p;
+        int id;
+        StaKey res;
+
+        if (!staIdx.cursor_lower_bound(k, p, id, res)) {
+            return;
+        }
+
+        while (true) {
+            add_mem_station(res.station, res.trainPos, res.pos);
+
+            if (!staIdx.cursor_next(p, id, res)) {
+                break;
+            }
+        }
+    }
+
+    int station_head(const char *station) {
+        int h = find_mem_head(station);
+
+        if (h == -1) {
+            return -1;
+        }
+
+        return memHead[h].head;
+    }
+
+    int station_next(int id) {
+        return memNode[id].next;
+    }
+
+    int station_train_pos(int id) {
+        return memNode[id].trainPos;
+    }
+
+    int station_pos(int id) {
+        return memNode[id].pos;
+    }
+
+    bool station_info(const char *station, int &head, int &cnt) {
+        int h = find_mem_head(station);
+
+        if (h == -1) {
+            head = -1;
+            cnt = 0;
+            return false;
+        }
+
+        head = memHead[h].head;
+        cnt = memHead[h].cnt;
+        return true;
+    }
+
+    ~TrainSys() {
+        delete[] memHead;
+        delete[] memNode;
     }
 
     bool get_train_by_pos(int pos, TrainRec &t) {
@@ -179,6 +360,7 @@ public:
             sk.trainPos = pos;
 
             staIdx.insert(sk);
+            add_mem_station(t.stations[i], pos, i);
         }
 
         return 0;
@@ -310,6 +492,7 @@ public:
         seatFile.clear();
         trainIdx.clear();
         staIdx.clear();
+        init_mem_station();
     }
 };
 

@@ -35,7 +35,7 @@ private:
     Header h;
     Less less;
 
-    static const int CACHE_SIZE = 128;
+    static const int CACHE_SIZE = 64;
 
     Node cacheNode[CACHE_SIZE];
     int cachePos[CACHE_SIZE];
@@ -143,6 +143,27 @@ private:
         std::fwrite(&x, sizeof(x), 1, fp);
 
         put_cache(p, x);
+    }
+
+    bool access_node(int p, const Node *&ptr, Node &tmp) {  // 只读访问
+        int id = find_cache(p);
+
+        if (id != -1) {
+            cacheTime[id] = ++cacheNow;
+            ptr = &cacheNode[id];
+            return true;
+        }
+
+        std::fseek(fp, off(p), SEEK_SET);
+
+        if (std::fread(&tmp, sizeof(tmp), 1, fp) != 1) {
+            return false;
+        }
+
+        put_cache(p, tmp);
+
+        ptr = &tmp;
+        return true;
     }
 
     int newnode(int leaf, int parent) {
@@ -893,45 +914,65 @@ public:
     bool cursor_lower_bound(const Key &k, int &p, int &id, Key &res) {
         p = find_leaf(k);
 
-        Node x;
-        readnode(p, x);
+        Node tmp;
+        const Node *x;
 
-        id = lower_pos(x, k);
+        if (!access_node(p, x, tmp)) {
+            return false;
+        }
+
+        id = lower_pos(*x, k);
 
         while (true) {
-            if (id < x.cnt) {
-                res = x.key[id];
+            if (id < x->cnt) {
+                res = x->key[id];
                 return true;
             }
 
-            p = x.next;
+            p = x->next;
 
-            if (p == -1) return false;
+            if (p == -1) {
+                return false;
+            }
 
-            readnode(p, x);
+            if (!access_node(p, x, tmp)) {
+                return false;
+            }
+
             id = 0;
         }
     }
 
     bool cursor_next(int &p, int &id, Key &res) {
-        if (p == -1) return false;
+        if (p == -1) {
+            return false;
+        }
 
-        Node x;
-        readnode(p, x);
+        Node tmp;
+        const Node *x;
 
-        id++;
+        if (!access_node(p, x, tmp)) {
+            return false;
+        }
+
+        ++id;
 
         while (true) {
-            if (id < x.cnt) {
-                res = x.key[id];
+            if (id < x->cnt) {
+                res = x->key[id];
                 return true;
             }
 
-            p = x.next;
+            p = x->next;
 
-            if (p == -1) return false;
+            if (p == -1) {
+                return false;
+            }
 
-            readnode(p, x);
+            if (!access_node(p, x, tmp)) {
+                return false;
+            }
+
             id = 0;
         }
     }

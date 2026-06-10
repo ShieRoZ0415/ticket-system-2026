@@ -34,10 +34,9 @@ inline int date_to_int(const char *s) {
     int month = (s[0] - '0') * 10 + (s[1] - '0');
     int day = (s[3] - '0') * 10 + (s[4] - '0');
 
-    int days[13] = {
-        0,
-        31, 28, 31, 30, 31, 30,
-        31, 31, 30, 31, 30, 31
+    static int pre[13] = {
+        0, 0, 0, 0, 0, 0,
+        0, 30, 61, 92, 122, 153, 183
     };
 
     if (month < 6) {
@@ -48,15 +47,7 @@ inline int date_to_int(const char *s) {
         return 100000;
     }
 
-    int res = 0;
-
-    for (int i = 6; i < month; ++i) {
-        res += days[i];
-    }
-
-    res += day - 1;
-
-    return res;
+    return pre[month] + day - 1;
 }
 
 inline void int_to_date(int d, char *s) {   // 列车运行可能跨天到 9 月
@@ -91,20 +82,36 @@ inline int time_to_int(const char *s) {
 inline void print_time(int minute) {
     int day = minute / 1440;
     int t = minute % 1440;
-
     int hour = t / 60;
     int min = t % 60;
 
-    char date[8];
-    int_to_date(day, date);
+    char s[12];
 
-    std::cout << date << ' ';
+    int month = 6;
+    int days[7] = {30, 31, 31, 30, 31, 30, 31};
+    int idx = 0;
 
-    if (hour < 10) std::cout << '0';
-    std::cout << hour << ':';
+    while (idx < 7 && day >= days[idx]) {
+        day -= days[idx];
+        ++idx;
+        ++month;
+    }
 
-    if (min < 10) std::cout << '0';
-    std::cout << min;
+    int d = day + 1;
+
+    s[0] = char('0' + month / 10);
+    s[1] = char('0' + month % 10);
+    s[2] = '-';
+    s[3] = char('0' + d / 10);
+    s[4] = char('0' + d % 10);
+    s[5] = ' ';
+    s[6] = char('0' + hour / 10);
+    s[7] = char('0' + hour % 10);
+    s[8] = ':';
+    s[9] = char('0' + min / 10);
+    s[10] = char('0' + min % 10);
+
+    std::cout.write(s, 11);
 }
 
 #endif

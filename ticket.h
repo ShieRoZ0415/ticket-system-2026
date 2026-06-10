@@ -311,29 +311,35 @@ public:
         : user(u), train(t), order(o) {}
 
     int query_ticket(const std::string& from,
-                     const std::string& to,
-                     const std::string& date,
-                     const std::string& sortType) {
+                 const std::string& to,
+                 const std::string& date,
+                 const std::string& sortType) {
         static Ticket ans[20005];
         int cnt = 0;
 
         int queryDay = date_to_int(date.c_str());
 
-        StaKey k = {};
-        std::strcpy(k.station, from.c_str());
-        k.trainID[0] = '\0';
-        k.pos = -1;
+        int fromHead;
+        int fromCnt;
+        int toHead;
+        int toCnt;
 
-        int p;
-        int id;
-        StaKey res;
+        bool hasFrom = train->station_info(from.c_str(), fromHead, fromCnt);
+        bool hasTo = train->station_info(to.c_str(), toHead, toCnt);
 
-        if (train->station_index().cursor_lower_bound(k, p, id, res)) {
-            while (std::strcmp(res.station, from.c_str()) == 0) {
+        if (!hasFrom || !hasTo) {
+            std::cout << 0 << '\n';
+            return 0;
+        }
+
+        if (fromCnt <= toCnt) {
+            int it = fromHead;
+
+            while (it != -1) {
                 TrainRec t;
 
-                if (train->get_train_by_pos(res.trainPos, t)) {
-                    int fromID = res.pos;
+                if (train->get_train_by_pos(train->station_train_pos(it), t)) {
+                    int fromID = train->station_pos(it);
                     int toID = train->station_id(t, to.c_str());
 
                     if (toID != -1 && fromID < toID) {
@@ -345,9 +351,28 @@ public:
                     }
                 }
 
-                if (!train->station_index().cursor_next(p, id, res)) {
-                    break;
+                it = train->station_next(it);
+            }
+        } else {
+            int it = toHead;
+
+            while (it != -1) {
+                TrainRec t;
+
+                if (train->get_train_by_pos(train->station_train_pos(it), t)) {
+                    int toID = train->station_pos(it);
+                    int fromID = train->station_id(t, from.c_str());
+
+                    if (fromID != -1 && fromID < toID) {
+                        Ticket cur;
+
+                        if (make_ticket(t, fromID, toID, queryDay, cur)) {
+                            ans[cnt++] = cur;
+                        }
+                    }
                 }
+
+                it = train->station_next(it);
             }
         }
 
