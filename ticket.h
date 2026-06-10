@@ -22,65 +22,69 @@ struct Ticket {
 
 class TicketSys {
 private:
-    UserSys *user;
-    TrainSys *train;
-    OrderSys *order;
+    UserSys* user;
+    TrainSys* train;
+    OrderSys* order;
 
-    int get_origin_day(const TrainRec &t, int stationID, int queryDay) {
+    int get_origin_day(const TrainRec& t, int stationID, int queryDay) {
         int leaveOffset = t.startTime + t.depOffset[stationID];
         return queryDay - leaveOffset / 1440;
     }
-    int calc_seat(const TrainRec &t, int trainDay, int l, int r) {
+
+    int calc_seat(const TrainRec& t, int trainDay, int l, int r) {
         SeatRec s;
 
         if (!train->get_seat(t, trainDay, s)) {
             return -1;
         }
 
-        int ans = 1000000000;
+        int ans = t.seatNum;
 
-        for (int i = l; i < r; ++i) {   // 余票区间为 (l, r)
-            if (s.seat[trainDay][i] < ans) {
-                ans = s.seat[trainDay][i];
+        for (int i = l; i < r; ++i) {
+            // 余票区间为 (l, r)
+            if (s.seat[i] < ans) {
+                ans = s.seat[i];
             }
         }
 
         return ans;
     }
 
-    void add_seat(const TrainRec &t, int trainDay, int l, int r, int num){
+    void add_seat(const TrainRec& t, int trainDay, int l, int r, int num) {
         SeatRec s;
 
         if (!train->get_seat(t, trainDay, s)) {
             return;
         }
 
-        for (int i = l; i < r; ++i) {   // 余票区间为 (l, r)
-            s.seat[trainDay][i] += num;
+        for (int i = l; i < r; ++i) {
+            // 余票区间为 (l, r)
+            s.seat[i] += num;
         }
 
         train->write_seat(t, trainDay, s);
     }
 
-    void sub_seat(const TrainRec &t, int trainDay, int l, int r, int num){
+    void sub_seat(const TrainRec& t, int trainDay, int l, int r, int num) {
         SeatRec s;
 
         if (!train->get_seat(t, trainDay, s)) {
             return;
         }
 
-        for (int i = l; i < r; ++i) {   // 余票区间为 (l, r)
-            s.seat[trainDay][i] -= num;
+        for (int i = l; i < r; ++i) {
+            // 余票区间为 (l, r)
+            s.seat[i] -= num;
         }
 
         train->write_seat(t, trainDay, s);
     }
 
-    bool make_ticket(const TrainRec &t,
+    bool make_ticket(const TrainRec& t,
                      int fromID,
                      int toID,
                      int queryDay,
-                     Ticket &ans){
+                     Ticket& ans) {
         if (!t.released) {
             return false;
         }
@@ -117,9 +121,9 @@ private:
         return true;
     }
 
-    bool better_ticket(const Ticket &a,
-                       const Ticket &b,
-                       const std::string &sortType) {
+    bool better_ticket(const Ticket& a,
+                       const Ticket& b,
+                       const std::string& sortType) {
         if (sortType == "time") {
             int ta = a.arriveTime - a.leaveTime;
             int tb = b.arriveTime - b.leaveTime;
@@ -129,7 +133,8 @@ private:
             }
 
             return std::strcmp(a.trainID, b.trainID) < 0;
-        } else {
+        }
+        else {
             if (a.price != b.price) {
                 return a.price < b.price;
             }
@@ -138,28 +143,67 @@ private:
         }
     }
 
-    void print_ticket(const Ticket &x) {
+    void swap_ticket(Ticket& a, Ticket& b) {
+        Ticket c = a;
+        a = b;
+        b = c;
+    }
+
+    void sort_ticket(Ticket a[],
+                     int l,
+                     int r,
+                     const std::string& sortType) {
+        int i = l;
+        int j = r;
+        Ticket mid = a[(l + r) >> 1];
+
+        while (i <= j) {
+            while (better_ticket(a[i], mid, sortType)) {
+                ++i;
+            }
+
+            while (better_ticket(mid, a[j], sortType)) {
+                --j;
+            }
+
+            if (i <= j) {
+                swap_ticket(a[i], a[j]);
+                ++i;
+                --j;
+            }
+        }
+
+        if (l < j) {
+            sort_ticket(a, l, j, sortType);
+        }
+
+        if (i < r) {
+            sort_ticket(a, i, r, sortType);
+        }
+    }
+
+    void print_ticket(const Ticket& x) {
         std::cout << x.trainID << ' '
-                  << x.from << ' ';
+            << x.from << ' ';
 
         print_time(x.leaveTime);
 
         std::cout << " -> "
-                  << x.to << ' ';
+            << x.to << ' ';
 
         print_time(x.arriveTime);
 
         std::cout << ' '
-                  << x.price << ' '
-                  << x.seat << '\n';
+            << x.price << ' '
+            << x.seat << '\n';
     }
 
 
-    bool better_transfer(const Ticket &a1,
-                     const Ticket &a2,
-                     const Ticket &b1,
-                     const Ticket &b2,
-                     const std::string &sortType) {
+    bool better_transfer(const Ticket& a1,
+                         const Ticket& a2,
+                         const Ticket& b1,
+                         const Ticket& b2,
+                         const std::string& sortType) {
         if (sortType == "cost") {
             int ca = a1.price + a2.price;
             int cb = b1.price + b2.price;
@@ -205,7 +249,7 @@ private:
         return std::strcmp(a2.trainID, b2.trainID) > 0;
     }
 
-    void check_queue(const char *trainID, int trainDay) {
+    void check_queue(const char* trainID, int trainDay) {
         while (true) {
             QueueKey k = {};
             std::strcpy(k.trainID, trainID);
@@ -224,7 +268,7 @@ private:
             }
 
             while (std::strcmp(res.trainID, trainID) == 0 &&
-                   res.trainDate == trainDay) {
+                res.trainDate == trainDay) {
                 OrderRec o;
                 order->read_order(res.pos, o);
 
@@ -254,25 +298,26 @@ private:
                 if (!order->queue_index().cursor_next(p, id, res)) {
                     break;
                 }
-                   }
+            }
 
             if (!changed) {
                 return;
             }
         }
-    }   // 每删掉一个候补，从队列开头重新扫描，避免删除当前节点后继续使用旧位置。
+    } // 每删掉一个候补，从队列开头重新扫描，避免删除当前节点后继续使用旧位置。
 
 public:
-    TicketSys(UserSys *u, TrainSys *t, OrderSys *o)
-    : user(u), train(t), order(o) {
-    }
+    TicketSys(UserSys* u, TrainSys* t, OrderSys* o)
+        : user(u), train(t), order(o) {}
 
-    int query_ticket(const std::string &from,
-                     const std::string &to,
-                     const std::string &date,
-                     const std::string &sortType) {
-        Ticket ans[10000];
+    int query_ticket(const std::string& from,
+                     const std::string& to,
+                     const std::string& date,
+                     const std::string& sortType) {
+        static Ticket ans[20005];
         int cnt = 0;
+
+        int queryDay = date_to_int(date.c_str());
 
         StaKey k = {};
         std::strcpy(k.station, from.c_str());
@@ -283,21 +328,20 @@ public:
         int id;
         StaKey res;
 
-        int queryDay = date_to_int(date.c_str());
-
         if (train->station_index().cursor_lower_bound(k, p, id, res)) {
             while (std::strcmp(res.station, from.c_str()) == 0) {
                 TrainRec t;
-                int trainPos;
 
-                if (train->get_train_by_id(res.trainID, t, trainPos)) {
-                    int fromID = train->station_id(t, from.c_str());
+                if (train->get_train_by_pos(res.trainPos, t)) {
+                    int fromID = res.pos;
                     int toID = train->station_id(t, to.c_str());
 
-                    Ticket cur;
+                    if (toID != -1 && fromID < toID) {
+                        Ticket cur;
 
-                    if (make_ticket(t, fromID, toID, queryDay, cur)) {
-                        ans[cnt++] = cur;
+                        if (make_ticket(t, fromID, toID, queryDay, cur)) {
+                            ans[cnt++] = cur;
+                        }
                     }
                 }
 
@@ -307,16 +351,8 @@ public:
             }
         }
 
-        for (int i = 1; i < cnt; ++i) {
-            Ticket x = ans[i];
-            int j = i - 1;
-
-            while (j >= 0 && better_ticket(x, ans[j], sortType)) {
-                ans[j + 1] = ans[j];
-                --j;
-            }
-
-            ans[j + 1] = x;
+        if (cnt > 1) {
+            sort_ticket(ans, 0, cnt - 1, sortType);
         }
 
         std::cout << cnt << '\n';
@@ -336,6 +372,8 @@ public:
     Ticket best2;
     bool found = false;
 
+    int queryDay = date_to_int(date.c_str());
+
     StaKey k = {};
     std::strcpy(k.station, from.c_str());
     k.trainID[0] = '\0';
@@ -345,15 +383,12 @@ public:
     int id;
     StaKey res;
 
-    int queryDay = date_to_int(date.c_str());
-
     if (train->station_index().cursor_lower_bound(k, p, id, res)) {
         while (std::strcmp(res.station, from.c_str()) == 0) {
             TrainRec t1;
-            int pos1;
 
-            if (train->get_train_by_id(res.trainID, t1, pos1)) {
-                int fromID = train->station_id(t1, from.c_str());
+            if (train->get_train_by_pos(res.trainPos, t1)) {
+                int fromID = res.pos;
 
                 if (fromID != -1) {
                     for (int midID1 = fromID + 1; midID1 < t1.stationNum; ++midID1) {
@@ -361,6 +396,21 @@ public:
 
                         if (!make_ticket(t1, fromID, midID1, queryDay, first)) {
                             continue;
+                        }
+
+                        if (found) {
+                            int bestCost = best1.price + best2.price;
+                            int bestTime = best2.arriveTime - best1.leaveTime;
+
+                            if (sortType == "cost") {
+                                if (first.price > bestCost) {
+                                    continue;
+                                }
+                            } else {
+                                if (first.arriveTime - first.leaveTime > bestTime) {
+                                    continue;
+                                }
+                            }
                         }
 
                         StaKey mk = {};
@@ -379,13 +429,12 @@ public:
                         while (std::strcmp(res2.station, t1.stations[midID1]) == 0) {
                             if (std::strcmp(res2.trainID, t1.trainID) != 0) {
                                 TrainRec t2;
-                                int pos2;
 
-                                if (train->get_train_by_id(res2.trainID, t2, pos2)) {
-                                    int midID2 = train->station_id(t2, t1.stations[midID1]);
+                                if (train->get_train_by_pos(res2.trainPos, t2)) {
+                                    int midID2 = res2.pos;
                                     int toID2 = train->station_id(t2, to.c_str());
 
-                                    if (midID2 != -1 && toID2 != -1 && midID2 < toID2) {
+                                    if (toID2 != -1 && midID2 < toID2) {
                                         int leaveOffset = t2.startTime + t2.depOffset[midID2];
 
                                         int need = first.arriveTime - leaveOffset;
@@ -412,7 +461,14 @@ public:
 
                                                     if (originDay <= t2.saleR) {
                                                         secondQueryDay = originDay + leaveOffset / 1440;
-                                                        make_ticket(t2, midID2, toID2, secondQueryDay, second);
+
+                                                        if (!make_ticket(t2, midID2, toID2, secondQueryDay, second)) {
+                                                            if (!train->station_index().cursor_next(p2, id2, res2)) {
+                                                                break;
+                                                            }
+
+                                                            continue;
+                                                        }
                                                     }
                                                 }
 
@@ -422,7 +478,7 @@ public:
                                                         best1 = first;
                                                         best2 = second;
                                                         found = true;
-                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -446,22 +502,49 @@ public:
 
     if (!found) {
         std::cout << 0 << '\n';
-    } else {
-        print_ticket(best1);
-        print_ticket(best2);
+        return 0;
     }
+
+    std::cout << best1.trainID << ' '
+              << best1.from << ' ';
+
+    print_time(best1.leaveTime);
+
+    std::cout << " -> "
+              << best1.to << ' ';
+
+    print_time(best1.arriveTime);
+
+    std::cout << ' '
+              << best1.price << ' '
+              << best1.seat << '\n';
+
+    std::cout << best2.trainID << ' '
+              << best2.from << ' ';
+
+    print_time(best2.leaveTime);
+
+    std::cout << " -> "
+              << best2.to << ' ';
+
+    print_time(best2.arriveTime);
+
+    std::cout << ' '
+              << best2.price << ' '
+              << best2.seat << '\n';
 
     return 0;
 }
 
-    int buy_ticket(const std::string &username,
-                   const std::string &trainID,
-                   const std::string &date,
+
+    int buy_ticket(const std::string& username,
+                   const std::string& trainID,
+                   const std::string& date,
                    int num,
-                   const std::string &from,
-                   const std::string &to,
+                   const std::string& from,
+                   const std::string& to,
                    bool queue,
-                   int timestamp){
+                   int timestamp) {
         if (!user->check_login(username.c_str())) {
             return -1;
         }
@@ -474,6 +557,10 @@ public:
         }
 
         if (!t.released) {
+            return -1;
+        }
+
+        if (num > t.seatNum) {
             return -1;
         }
 
@@ -492,7 +579,8 @@ public:
             return -1;
         }
 
-        if (tk.seat >= num) {   // 相等时购票成功
+        if (tk.seat >= num) {
+            // 相等时购票成功
             sub_seat(t, tk.trainDate, fromID, toID, num);
 
             OrderRec o = {};
@@ -553,8 +641,8 @@ public:
         return -1;
     }
 
-    int refund_ticket(const std::string &username,
-                  int nth) {
+    int refund_ticket(const std::string& username,
+                      int nth) {
         if (!user->check_login(username.c_str())) {
             return -1;
         }
@@ -579,7 +667,7 @@ public:
             qk.time = o.time;
             qk.pos = pos;
 
-            order->del_queue(qk);   // 将已退款的后补订单从等待队列中删除
+            order->del_queue(qk); // 将已退款的后补订单从等待队列中删除
             return 0;
         }
 
@@ -600,7 +688,7 @@ public:
         return 0;
     }
 
-    void clear(){}
+    void clear() {}
 };
 
 #endif

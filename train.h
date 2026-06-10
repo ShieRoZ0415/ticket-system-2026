@@ -86,6 +86,16 @@ public:
           staIdx("station.bpt") {
     }
 
+    bool get_train_by_pos(int pos, TrainRec &t) {
+        if (pos < 0) {
+            return false;
+        }
+
+        trainFile.read(pos, t);
+        return true;
+    }
+
+
     int add_train(const TrainRec &src) {
         if (find_train_pos(src.trainID) != -1) {
             return -1;
@@ -142,18 +152,21 @@ public:
             return -1;
         }
 
-        SeatRec seat = {};
+        int firstSeatPos = -1;
 
         for (int d = 0; d < MAX_DAY; ++d) {
+            SeatRec seat = {};
             for (int i = 0; i + 1 < t.stationNum; ++i) {
-                seat.seat[d][i] = t.seatNum;
+                seat.seat[i] = t.seatNum;
+            }
+            int curPos = seatFile.append(seat);
+            if (d == 0) {
+                firstSeatPos = curPos;
             }
         }
 
-        int seatPos = seatFile.append(seat);
-
         t.released = 1;
-        t.seatPos = seatPos;
+        t.seatPos = firstSeatPos;
 
         trainFile.write(pos, t);
 
@@ -161,7 +174,9 @@ public:
             StaKey sk = {};
             std::strcpy(sk.station, t.stations[i]);
             std::strcpy(sk.trainID, t.trainID);
-            sk.pos = pos;
+
+            sk.pos = i;
+            sk.trainPos = pos;
 
             staIdx.insert(sk);
         }
@@ -241,7 +256,7 @@ public:
                 std::cout << 'x';
             } else {
                 if (hasSeat) {
-                    std::cout << seat.seat[day][i];
+                    std::cout << seat.seat[i];
                 } else {
                     std::cout << t.seatNum;
                 }
@@ -266,7 +281,7 @@ public:
             return false;
         }
 
-        seatFile.read(t.seatPos, s);
+        seatFile.read(t.seatPos + day, s);
         return true;
     }
 
@@ -279,7 +294,7 @@ public:
             return;
         }
 
-        seatFile.write(t.seatPos, s);
+        seatFile.write(t.seatPos + day, s);
     }
 
     int station_id(const TrainRec &t, const char *station) {

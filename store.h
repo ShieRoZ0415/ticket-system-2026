@@ -39,7 +39,6 @@ public:
         int p = size();
         std::fseek(fp, 1ll * p * sizeof(T), SEEK_SET);
         std::fwrite(&x, sizeof(T), 1, fp);
-        std::fflush(fp);
         return p;
     }
 
@@ -51,7 +50,6 @@ public:
     void write(int p, const T &x) {
         std::fseek(fp, 1ll * p * sizeof(T), SEEK_SET);
         std::fwrite(&x, sizeof(T), 1, fp);
-        std::fflush(fp);
     }
 
     void clear() {

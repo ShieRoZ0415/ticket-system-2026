@@ -39,7 +39,7 @@ struct TrainRec {
 };
 
 struct SeatRec {
-    int seat[MAX_DAY][MAX_STA];
+    int seat[MAX_STA];
 };
 
 enum OrderStatus {
@@ -94,7 +94,9 @@ struct TrainKey {
 struct StaKey {
     char station[STA_LEN];
     char trainID[TRAIN_LEN];
+
     int pos;
+    int trainPos;
 
     bool operator<(const StaKey &o) const {
         int c = strcmp(station, o.station);
