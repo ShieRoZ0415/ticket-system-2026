@@ -1,197 +1,42 @@
 # Ticket System
 
-## 1. 项目简介
+一个基于文件存储的火车票订票系统。程序从标准输入读取命令，将处理结果输出到标准输出，并将用户、车次、余票、订单和候补队列等信息保存到本地文件中。
+项目实现了完整的用户系统、车次管理、直达查询、换乘查询、购票、候补购票、退票和订单查询等功能。
 
-本项目实现一个简化版火车票订票系统，支持用户管理、车次管理、车票查询、换乘查询、购票、订单查询、退票和候补队列等功能。
+## 功能概览
 
-程序通过标准输入读取命令，并通过标准输出返回结果。系统数据保存在本地文件中，程序多次启动后仍可继续使用已有数据。
+* 用户注册、登录、登出、查询和修改
+* 车次添加、删除、发布和查询
+* 直达车票查询
+* 一次换乘查询
+* 购票和候补购票
+* 退票和候补队列处理
+* 用户订单查询
+* 数据清空和程序退出
 
-## 2. 文件结构
+## 文件结构
 
 ```text
-TicketSystem
-├── main.cpp
-├── BPT.h
-├── Store.h
-├── Struct.h
-├── UserSystem.h
-├── TrainSystem.h
-├── OrderSystem.h
-├── TicketSystem.h
-├── Command.h
-├── README.md
+.
+├── main.cpp        程序入口
+├── cmd.h           命令解析和分发
+├── basic.h         基础常量、日期和时间工具
+├── record.h        数据记录结构和索引 key
+├── store.h         固定长度记录文件
+├── BPT.h           文件版 B+ 树
+├── user.h          用户模块
+├── train.h         车次、站点和余票模块
+├── ticket.h        查票、购票、退票和换乘逻辑
+├── order.h         订单和候补队列模块
 └── CMakeLists.txt
 ```
 
-## 3. 文件说明
+## 整体设计
 
-### main.cpp
-
-程序入口。负责创建系统对象，进入命令读取和执行循环。
-
-### BPT.h
-
-通用 B+ 树模板。由之前实现的文件版 B+ 树改造而来，用于保存索引。
-
-本项目中主要使用以下索引：
-
-```text
-user.bpt
-train.bpt
-station.bpt
-order.bpt
-queue.bpt
-```
-
-B+ 树中的 Key 只能是固定长度结构体，不能使用 `std::string`、指针或动态数组。
-
-### Store.h
-
-固定长度记录文件管理类。负责对数据文件进行追加、读取、修改和清空。
-
-主要接口：
-
-```cpp
-template <class T>
-class Store {
-public:
-    Store(const char *name);
-    ~Store();
-
-    int size();
-    int append(const T &x);
-    void read(int pos, T &x);
-    void write(int pos, const T &x);
-    void clear();
-};
-```
-
-### Struct.h
-
-保存所有基础结构体和索引 Key。
-
-主要包括：
-
-```cpp
-struct UserRec;
-struct TrainRec;
-struct SeatRec;
-struct OrderRec;
-
-struct UserKey;
-struct TrainKey;
-struct StaKey;
-struct OrderKey;
-struct QueueKey;
-```
-
-### UserSystem.h
-
-用户模块。负责用户注册、登录、登出、查询和修改。
-
-主要类：
-
-```cpp
-class UserSystem;
-```
-
-主要接口：
-
-```cpp
-int add_user(...);
-int login(...);
-int logout(...);
-int query_profile(...);
-int modify_profile(...);
-bool check_login(...);
-void clear();
-```
-
-### TrainSystem.h
-
-车次模块。负责添加车次、删除车次、发布车次和查询车次。
-
-主要类：
-
-```cpp
-class TrainSystem;
-```
-
-主要接口：
-
-```cpp
-int add_train(...);
-int delete_train(...);
-int release_train(...);
-int query_train(...);
-
-bool get_train_by_id(...);
-int station_id(...);
-
-int get_seat(...);
-void add_seat(...);
-void sub_seat(...);
-void clear();
-```
-
-### OrderSystem.h
-
-订单模块。负责保存订单、查询订单和维护候补队列。
-
-主要类：
-
-```cpp
-class OrderSystem;
-```
-
-主要接口：
-
-```cpp
-int add_order(...);
-void read_order(...);
-void write_order(...);
-
-int query_order(...);
-
-void add_queue(...);
-void del_queue(...);
-void clear();
-```
-
-### TicketSystem.h
-
-票务模块。负责车票查询、换乘查询、购票和退票。
-
-主要类：
-
-```cpp
-class TicketSystem;
-```
-
-主要接口：
-
-```cpp
-int query_ticket(...);
-int query_transfer(...);
-int buy_ticket(...);
-int refund_ticket(...);
-void clear();
-```
-
-### Command.h
-
-命令解析和命令分发模块。负责读取输入命令、解析参数，并调用对应业务函数。
-
-主要类：
-
-```cpp
-class Command;
-class System;
-```
-
-## 4. 数据文件设计
-
-系统使用固定长度记录文件保存完整数据。
+系统采用“记录文件 + 索引文件”的方式保存数据。
+完整数据存放在 `.dat` 文件中，索引信息存放在 `.bpt` 文件中。记录文件保存固定长度结构体，索引文件保存 key 和对应记录在文件中的位置。
+这种设计避免了频繁解析文本文件，也便于通过索引快速定位用户、车次、订单和车站相关信息。
+主要数据文件包括：
 
 ```text
 user.dat
@@ -200,21 +45,7 @@ seat.dat
 order.dat
 ```
 
-其中：
-
-`user.dat` 保存用户记录。
-
-`train.dat` 保存车次记录。
-
-`seat.dat` 保存每日每段余票。
-
-`order.dat` 保存订单记录。
-
-每条记录在文件中的编号记为 `pos`。索引中保存 `pos`。
-
-## 5. 索引设计
-
-系统使用 B+ 树保存索引。
+主要索引文件包括：
 
 ```text
 user.bpt
@@ -224,178 +55,142 @@ order.bpt
 queue.bpt
 ```
 
-### user.bpt
+其中，`.dat` 文件负责保存完整记录，`.bpt` 文件负责快速查找。
 
-按用户名建立索引，用于快速查找用户。
+## 存储结构
 
-Key 设计：
-
-```cpp
-struct UserKey {
-    char username[21];
-    int pos;
-};
-```
-
-### train.bpt
-
-按车次编号建立索引，用于快速查找车次。
-
-Key 设计：
-
-```cpp
-struct TrainKey {
-    char trainID[21];
-    int pos;
-};
-```
-
-### station.bpt
-
-按车站名和车次编号建立索引，用于查询经过某个车站的所有车次。
-
-Key 设计：
-
-```cpp
-struct StaKey {
-    char station[31];
-    char trainID[21];
-    int pos;
-};
-```
-
-`query_ticket` 和 `query_transfer` 主要复用这个索引。
-
-### order.bpt
-
-按用户名和反向时间建立索引，用于查询某个用户的所有订单。
-
-Key 设计：
-
-```cpp
-struct OrderKey {
-    char username[21];
-    int revTime;
-    int pos;
-};
-```
-
-其中 `revTime` 用来让订单按新到旧排列。
-
-### queue.bpt
-
-按车次、日期和下单时间建立索引，用于维护候补订单。
-
-Key 设计：
-
-```cpp
-struct QueueKey {
-    char trainID[21];
-    int trainDate;
-    int time;
-    int pos;
-};
-```
-
-## 6. 存储方法
-
-完整数据保存在 `.dat` 文件中，B+ 树只保存索引 Key。
-
-例如用户查询流程为：
+`store.h` 封装了固定长度记录文件的读写。每条记录在文件中占用固定大小，因此可以通过记录编号直接计算文件偏移，实现随机读取和写入。
 
 ```text
-1. 根据 username 构造 UserKey
-2. 在 user.bpt 中查找对应 key
-3. 得到用户记录在 user.dat 中的位置 pos
-4. 通过 Store<UserRec> 读取完整用户信息
+offset = p * sizeof(record)
 ```
 
-车次、订单和候补队列也采用类似方式。
+这种方式适合保存用户记录、车次记录、余票记录和订单记录。
+为了减少文件操作开销，记录文件内部维护当前记录数量，新增记录时直接写入文件末尾，不需要每次通过文件大小重新计算。
 
-## 7. query_ticket 设计
+## B+ 树索引
 
-`query_ticket` 根据出发站、到达站和日期查询直达车票。
+`BPT.h` 实现了文件版 B+ 树，用于维护各种索引。
+不同模块使用不同的 key：
+* 用户索引：通过用户名定位用户记录
+* 车次索引：通过车次编号定位车次记录
+* 车站索引：通过站名找到经过该站的车次
+* 订单索引：通过用户名和时间定位订单
+* 候补队列索引：按车次、日期和下单时间维护候补顺序
+B+ 树节点保存在文件中，节点之间通过编号引用。叶子节点之间维护前后指针，便于区间扫描。
 
-基本流程：
+为了减少重复文件访问，B+ 树加入了节点缓存。最近访问过的节点会保存在内存中，再次访问同一个节点时可以直接读取缓存，减少
+`fseek` 和 `fread` 的次数。
+
+## 用户模块
+
+`user.h` 负责用户相关操作，包括注册、登录、登出、查询和修改用户信息。
+用户信息保存在 `user.dat` 中，用户名索引保存在 `user.bpt` 中。系统通过用户名快速定位用户记录，并通过运行时状态维护当前在线用户。
+用户权限用于控制用户管理操作。高权限用户可以创建或修改低权限用户的信息。
+
+## 车次模块
+
+`train.h` 负责车次、站点和余票数据。
+车次添加后会保存到 `train.dat` 中，车次编号索引写入 `train.bpt`。车次发布后，系统会为该车次初始化余票信息，并将车次经过的所有站点写入车站索引。
+余票数据保存在 `seat.dat` 中。每个车次在不同日期上有独立的余票记录，查询和购票时根据车次始发日期定位对应余票。
+车次发布后不可删除，也不可再次修改。未发布车次可以删除。
+
+## 车站索引
+
+车站索引用于加速车票查询。
+磁盘中的 `station.bpt` 保存“站名 -> 经过该站的车次”这一关系。每个车次发布时，会将它经过的所有站点写入车站索引。
+为了加速高频查票，程序运行时还会维护一份内存车站索引。启动时从 `station.bpt` 重建，发布新车次时同步更新。
+内存车站索引保存每个站点对应的车次列表。直达查询时，程序可以直接从内存中得到经过某个站的候选车次，避免每次都扫描文件版 B+
+树。
+在查询直达车票时，系统会比较出发站和到达站的候选车次数量，优先从候选更少的一侧开始扫描，从而减少无效车次判断。
+
+## 车票查询
+
+`ticket.h` 负责直达查询和换乘查询。
+
+直达查询流程大致如下：
+1. 根据出发站和到达站找到候选车次
+2. 判断车次是否同时经过两个站点
+3. 判断站点顺序是否合法
+4. 根据查询日期计算列车始发日期
+5. 检查售卖日期范围和区间余票
+6. 按时间或价格排序输出结果
+查询结果按题目要求排序。如果排序关键字相同，则按车次编号排序。
+
+换乘查询会枚举第一程可到达的中转站，再查找第二程车次。系统会比较总时间、总价格和车次编号，选出最优换乘方案。
+
+## 购票和退票
+
+购票时，系统会检查以下条件：
+
+* 用户是否已登录
+* 车次是否存在并已发布
+* 日期是否在售卖范围内
+* 出发站和到达站是否合法
+* 购票数量是否超过限制
+* 当前余票是否足够
+
+如果余票足够，订单会直接成功，并扣减对应区间余票。
+如果余票不足且允许候补，订单会进入候补队列。候补订单按照下单时间维护顺序。
+
+退票时，系统会恢复对应区间余票。如果该车次和日期下存在候补订单，系统会按队列顺序尝试处理候补订单。能够满足余票要求的候补订单会转为成功状态，并扣减余票。
+
+## 订单模块
+
+`order.h` 负责保存订单和维护候补队列。
+订单记录保存在 `order.dat` 中。订单索引用于按用户和下单时间查询订单，候补队列索引用于按车次和日期处理候补订单。
+订单状态包括：
 
 ```text
-1. 在 station.bpt 中找到所有经过出发站的车次
-2. 逐个读取车次信息
-3. 判断该车是否也经过到达站
-4. 判断出发站是否在到达站之前
-5. 根据用户给出的出发日期计算该车始发日期
-6. 判断日期是否在售卖区间内
-7. 查询对应区间余票
-8. 保存符合条件的答案
-9. 按 time 或 cost 进行排序输出
+success
+pending
+refunded
 ```
 
+查询订单时，系统按时间倒序输出用户的订单记录。
 
-## 8. query_transfer 设计
+## 命令处理
 
-`query_transfer` 查询恰好换乘一次的最优方案。
-
-本项目采用较直接的枚举方法，主要复用 `station.bpt`。
-
-基本流程：
+`cmd.h` 负责解析输入命令，并将命令分发到对应模块。
+程序支持以下主要命令：
 
 ```text
-1. 在 station.bpt 中扫描所有经过出发站的第一程车次
-2. 对每个第一程车次，枚举出发站之后的每个车站作为换乘站
-3. 在 station.bpt 中扫描所有经过换乘站的第二程车次
-4. 排除第一程和第二程为同一车次的情况
-5. 判断第二程车次是否能从换乘站到达终点站
-6. 判断第二程出发时间是否不早于第一程到达时间
-7. 查询两段车票余票
-8. 若方案合法，则计算总时间和总价格
-9. 按题目要求更新最优答案
+add_user
+login
+logout
+query_profile
+modify_profile
+add_train
+delete_train
+release_train
+query_train
+query_ticket
+query_transfer
+buy_ticket
+query_order
+refund_ticket
+clean
+exit
 ```
 
-当 `-p time` 时，比较顺序为：
+每条命令都带有时间戳。系统输出时保留时间戳格式，并根据命令执行结果输出对应内容。
+
+## 清空数据
+
+输入：
 
 ```text
-总时间
-总价格
-第一程 trainID
-第二程 trainID
+clean
 ```
 
-当 `-p cost` 时，比较顺序为：
+会清空所有数据文件和索引文件，并重置运行时状态。
+
+## 退出程序
+
+输入：
 
 ```text
-总价格
-总时间
-第一程 trainID
-第二程 trainID
+exit
 ```
 
-
-## 9. clean 和 exit 设计
-
-`clean` 清空所有数据文件和索引文件，并清空在线用户数组。
-
-`exit` 输出 `bye`，程序结束。在线用户只保存在内存中，程序退出后自动全部下线。
-
-## 10. 当前进度
-
-目前完成初期设计，包括：
-
-```text
-1. 文件结构设计
-2. B+ 树索引复用设计
-3. 固定长度记录文件设计
-4. 用户、车次、订单、票务模块划分
-5. query_transfer 初步算法设计
-```
-
-下一步将按模块依次实现：
-
-```text
-1. Store 文件读写
-2. BPT 索引测试
-3. 用户模块
-4. 车次模块
-5. 车票查询
-6. 购票和订单
-7. 候补队列和退票
-```
+程序输出 `bye` 后结束。
